@@ -93,19 +93,60 @@ fn main() -> anyhow::Result<()> {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(15);
 
+        struct MilestoneCheck {
+            name: &'static str,
+            pattern: &'static str,
+            passed: bool,
+        }
+
+        let mut checks = [
+            MilestoneCheck {
+                name: "1. Kernel GDT initialization",
+                pattern: "Kernel GDT and TSS initialization complete.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "2. Kernel TSS & Task Register (TR = 0x0018)",
+                pattern: "Kernel Task Register (TR): 0x0018",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "3. Kernel IDT initialization",
+                pattern: "Kernel IDT initialized (handlers: #BP, #DF with IST1, #GP, #PF).",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "4. Breakpoint (#BP) exception dispatch",
+                pattern: "EXCEPTION: BREAKPOINT (#BP)",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "5. Return from breakpoint handler",
+                pattern: "Exception verification complete: returned successfully from #BP handler.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "6. Phase 1 kernel boot completion banner",
+                pattern: "[SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!",
+                passed: false,
+            },
+        ];
+
         let mut captured_lines = Vec::new();
-        let mut success_detected = false;
 
         for line_result in reader.lines() {
             if let Ok(line) = line_result {
                 println!("{}", line);
-                if line.contains("[SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!") {
-                    success_detected = true;
+                for check in &mut checks {
+                    if !check.passed && line.contains(check.pattern) {
+                        check.passed = true;
+                    }
                 }
                 captured_lines.push(line);
             }
 
-            if success_detected || start_time.elapsed() > timeout {
+            let all_passed = checks.iter().all(|c| c.passed);
+            if all_passed || start_time.elapsed() > timeout {
                 break;
             }
         }
@@ -113,13 +154,27 @@ fn main() -> anyhow::Result<()> {
         let _ = child.kill();
         let _ = child.wait();
 
-        if success_detected {
-            println!("\n================================================================");
-            println!("[Runner Test] VERIFICATION PASSED: Kernel booted and initialized.");
+        println!("\n================================================================");
+        println!("             Micro-OS Automated Verification Summary            ");
+        println!("================================================================");
+        let mut all_passed = true;
+        for check in &checks {
+            if check.passed {
+                println!("  \x1b[1;32m[PASS]\x1b[0m {}", check.name);
+            } else {
+                println!("  \x1b[1;31m[FAIL]\x1b[0m {} (Expected pattern: {:?})", check.name, check.pattern);
+                all_passed = false;
+            }
+        }
+        println!("================================================================");
+
+        if all_passed {
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1 & Phase 2 Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {
-            anyhow::bail!("Verification timed out or did not detect kernel boot success banner");
+            let failed_count = checks.iter().filter(|c| !c.passed).count();
+            anyhow::bail!("Automated verification failed: {}/{} milestone checks failed", failed_count, checks.len());
         }
     } else {
         println!("[Runner] Launching QEMU with graphical window (display: {})...", display_backend);
