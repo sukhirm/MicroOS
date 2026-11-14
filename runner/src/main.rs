@@ -74,16 +74,14 @@ fn main() -> anyhow::Result<()> {
     println!("[Runner] Found QEMU at: {}", qemu_path.display());
     println!("[Runner] Found OVMF firmware at: {}", ovmf_path.display());
 
-    // 5. Configure QEMU command
-    let mut qemu_cmd = Command::new(&qemu_path);
-    qemu_cmd.arg("-drive").arg(format!("if=pflash,format=raw,readonly=on,file={}", ovmf_path.display()));
-    qemu_cmd.arg("-drive").arg(format!("format=raw,file={}", uefi_img_path.display()));
-    qemu_cmd.arg("-m").arg("512M");
-    qemu_cmd.arg("-serial").arg("stdio");
-    qemu_cmd.arg("-display").arg(&display_backend);
-
     if is_test_mode {
         println!("[Runner] Running in automated verification mode (headless)...");
+        let mut qemu_cmd = Command::new(&qemu_path);
+        qemu_cmd.arg("-drive").arg(format!("if=pflash,format=raw,readonly=on,file={}", ovmf_path.display()));
+        qemu_cmd.arg("-drive").arg(format!("format=raw,file={}", uefi_img_path.display()));
+        qemu_cmd.arg("-m").arg("512M");
+        qemu_cmd.arg("-serial").arg("stdio");
+        qemu_cmd.arg("-display").arg(&display_backend);
         qemu_cmd.stdout(Stdio::piped());
         qemu_cmd.stderr(Stdio::piped());
 
@@ -125,8 +123,404 @@ fn main() -> anyhow::Result<()> {
         }
     } else {
         println!("[Runner] Launching QEMU with graphical window (display: {})...", display_backend);
-        let mut child = qemu_cmd.spawn()?;
-        let _ = child.wait();
+        #[cfg(windows)]
+        {
+            win32_launcher::run_qemu_interactive_windows(
+                &qemu_path,
+                &ovmf_path,
+                &uefi_img_path,
+                &display_backend,
+            )?;
+        }
+        #[cfg(not(windows))]
+        {
+            let mut qemu_cmd = Command::new(&qemu_path);
+            qemu_cmd.arg("-drive").arg(format!("if=pflash,format=raw,readonly=on,file={}", ovmf_path.display()));
+            qemu_cmd.arg("-drive").arg(format!("format=raw,file={}", uefi_img_path.display()));
+            qemu_cmd.arg("-m").arg("512M");
+            qemu_cmd.arg("-serial").arg("stdio");
+            qemu_cmd.arg("-display").arg(&display_backend);
+            let mut child = qemu_cmd.spawn()?;
+            let _ = child.wait();
+        }
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+#[allow(non_snake_case, dead_code)]
+mod win32_launcher {
+    use std::ffi::c_void;
+    use std::path::Path;
+    use std::time::Duration;
+
+    type HWND = isize;
+    type HANDLE = isize;
+    type BOOL = i32;
+    type DWORD = u32;
+    type WORD = u16;
+    type LPWSTR = *mut u16;
+    type LPCWSTR = *const u16;
+    type LPARAM = isize;
+    type WNDENUMPROC = unsafe extern "system" fn(HWND, LPARAM) -> BOOL;
+
+    #[repr(C)]
+    struct SECURITY_ATTRIBUTES {
+        nLength: DWORD,
+        lpSecurityDescriptor: *mut c_void,
+        bInheritHandle: BOOL,
+    }
+
+    #[repr(C)]
+    struct STARTUPINFOW {
+        cb: DWORD,
+        lpReserved: LPWSTR,
+        lpDesktop: LPWSTR,
+        lpTitle: LPWSTR,
+        dwX: DWORD,
+        dwY: DWORD,
+        dwXSize: DWORD,
+        dwYSize: DWORD,
+        dwXCountChars: DWORD,
+        dwYCountChars: DWORD,
+        dwFillAttribute: DWORD,
+        dwFlags: DWORD,
+        wShowWindow: WORD,
+        cbReserved2: WORD,
+        lpReserved2: *mut u8,
+        hStdInput: HANDLE,
+        hStdOutput: HANDLE,
+        hStdError: HANDLE,
+    }
+
+    #[repr(C)]
+    struct PROCESS_INFORMATION {
+        hProcess: HANDLE,
+        hThread: HANDLE,
+        dwProcessId: DWORD,
+        dwThreadId: DWORD,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Default)]
+    struct RECT {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+
+    const STD_INPUT_HANDLE: i32 = -10;
+    const STARTF_USESTDHANDLES: u32 = 0x0000_0100;
+    const HANDLE_FLAG_INHERIT: u32 = 0x0000_0001;
+    const SW_HIDE: i32 = 0;
+    const SW_SHOW: i32 = 5;
+    const SW_RESTORE: i32 = 9;
+    const HWND_TOPMOST: HWND = -1;
+    const HWND_NOTOPMOST: HWND = -2;
+    const SWP_SHOWWINDOW: u32 = 0x0040;
+    const INFINITE: u32 = 0xFFFF_FFFF;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreatePipe(
+            hReadPipe: *mut HANDLE,
+            hWritePipe: *mut HANDLE,
+            lpPipeAttributes: *mut SECURITY_ATTRIBUTES,
+            nSize: DWORD,
+        ) -> BOOL;
+        fn SetHandleInformation(hObject: HANDLE, dwMask: DWORD, dwFlags: DWORD) -> BOOL;
+        fn GetStdHandle(nStdHandle: i32) -> HANDLE;
+        fn CreateProcessW(
+            lpApplicationName: LPCWSTR,
+            lpCommandLine: LPWSTR,
+            lpProcessAttributes: *mut c_void,
+            lpThreadAttributes: *mut c_void,
+            bInheritHandles: BOOL,
+            dwCreationFlags: DWORD,
+            lpEnvironment: *mut c_void,
+            lpCurrentDirectory: LPCWSTR,
+            lpStartupInfo: *mut STARTUPINFOW,
+            lpProcessInformation: *mut PROCESS_INFORMATION,
+        ) -> BOOL;
+        fn ReadFile(
+            hFile: HANDLE,
+            lpBuffer: *mut c_void,
+            nNumberOfBytesToRead: DWORD,
+            lpNumberOfBytesRead: *mut DWORD,
+            lpOverlapped: *mut c_void,
+        ) -> BOOL;
+        fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: DWORD) -> DWORD;
+        fn GetExitCodeProcess(hProcess: HANDLE, lpExitCode: *mut DWORD) -> BOOL;
+        fn CloseHandle(hObject: HANDLE) -> BOOL;
+        fn GetLastError() -> DWORD;
+    }
+
+    #[link(name = "user32")]
+    extern "system" {
+        fn OpenDesktopW(
+            lpszDesktop: LPCWSTR,
+            dwFlags: DWORD,
+            fInherit: BOOL,
+            dwDesiredAccess: DWORD,
+        ) -> HANDLE;
+        fn EnumDesktopWindows(hDesktop: HANDLE, lpfn: WNDENUMPROC, lParam: LPARAM) -> BOOL;
+        fn GetWindowThreadProcessId(hWnd: HWND, lpdwProcessId: *mut DWORD) -> DWORD;
+        fn GetClassNameW(hWnd: HWND, lpClassName: *mut u16, nMaxCount: i32) -> i32;
+        fn GetWindowRect(hWnd: HWND, lpRect: *mut RECT) -> BOOL;
+        fn SetThreadDesktop(hDesktop: HANDLE) -> BOOL;
+        fn MoveWindow(hWnd: HWND, X: i32, Y: i32, nWidth: i32, nHeight: i32, bRepaint: BOOL) -> BOOL;
+        fn SetWindowPos(
+            hWnd: HWND,
+            hWndInsertAfter: HWND,
+            X: i32,
+            Y: i32,
+            cx: i32,
+            cy: i32,
+            uFlags: u32,
+        ) -> BOOL;
+        fn ShowWindow(hWnd: HWND, nCmdShow: i32) -> BOOL;
+        fn SetForegroundWindow(hWnd: HWND) -> BOOL;
+        fn BringWindowToTop(hWnd: HWND) -> BOOL;
+        fn SwitchToThisWindow(hWnd: HWND, fUnknown: BOOL);
+        fn CloseDesktop(hDesktop: HANDLE) -> BOOL;
+        fn GetSystemMetrics(nIndex: i32) -> i32;
+        fn IsWindowVisible(hWnd: HWND) -> BOOL;
+    }
+
+    fn quote_arg(s: &str) -> String {
+        if s.contains(' ') || s.contains('\t') || s.is_empty() {
+            format!("\"{}\"", s.replace('\"', "\\\""))
+        } else {
+            s.to_string()
+        }
+    }
+
+    pub fn run_qemu_interactive_windows(
+        qemu_path: &Path,
+        ovmf_path: &Path,
+        uefi_img_path: &Path,
+        display_backend: &str,
+    ) -> anyhow::Result<()> {
+        let args = [
+            qemu_path.to_string_lossy().to_string(),
+            "-drive".to_string(),
+            format!("if=pflash,format=raw,readonly=on,file={}", ovmf_path.display()),
+            "-drive".to_string(),
+            format!("format=raw,file={}", uefi_img_path.display()),
+            "-m".to_string(),
+            "512M".to_string(),
+            "-serial".to_string(),
+            "stdio".to_string(),
+            "-display".to_string(),
+            display_backend.to_string(),
+        ];
+
+        let cmd_line = args.iter().map(|a| quote_arg(a)).collect::<Vec<_>>().join(" ");
+        let mut cmd_line_wide: Vec<u16> = cmd_line.encode_utf16().chain(std::iter::once(0)).collect();
+
+        // Create pipe for serial stdout/stderr
+        let mut sa = SECURITY_ATTRIBUTES {
+            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as DWORD,
+            lpSecurityDescriptor: std::ptr::null_mut(),
+            bInheritHandle: 1,
+        };
+
+        let mut h_read: HANDLE = 0;
+        let mut h_write: HANDLE = 0;
+
+        unsafe {
+            if CreatePipe(&mut h_read, &mut h_write, &mut sa, 0) == 0 {
+                anyhow::bail!("Failed to create pipe for QEMU serial output (code: {})", GetLastError());
+            }
+            SetHandleInformation(h_read, HANDLE_FLAG_INHERIT, 0);
+        }
+
+        let mut desktop_wide: Vec<u16> = "Default\0".encode_utf16().collect();
+
+        let mut si: STARTUPINFOW = unsafe { std::mem::zeroed() };
+        si.cb = std::mem::size_of::<STARTUPINFOW>() as DWORD;
+        si.lpDesktop = desktop_wide.as_mut_ptr();
+        si.dwFlags = STARTF_USESTDHANDLES;
+        si.hStdInput = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+        si.hStdOutput = h_write;
+        si.hStdError = h_write;
+
+        let mut pi: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+
+        println!("[Runner] Spawning QEMU targeted to interactive desktop station ('WinSta0\\Default')...");
+        let create_res = unsafe {
+            CreateProcessW(
+                std::ptr::null(),
+                cmd_line_wide.as_mut_ptr(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                1, // bInheritHandles = TRUE
+                0,
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                &mut si,
+                &mut pi,
+            )
+        };
+
+        if create_res == 0 {
+            let err = unsafe { GetLastError() };
+            unsafe {
+                CloseHandle(h_read);
+                CloseHandle(h_write);
+            }
+            anyhow::bail!("Failed to launch QEMU process on Default desktop (code: {})", err);
+        }
+
+        // Close write handle in parent so reader thread receives EOF when QEMU exits
+        unsafe {
+            CloseHandle(h_write);
+        }
+
+        let child_pid = pi.dwProcessId;
+        let child_process = pi.hProcess;
+        println!("[Runner] QEMU running on physical desktop station (PID: {})", child_pid);
+
+        // 1. Start background serial output streaming thread
+        let read_handle = h_read;
+        std::thread::spawn(move || {
+            use std::io::Write;
+            let mut buf = [0u8; 4096];
+            let mut bytes_read: DWORD = 0;
+            unsafe {
+                while ReadFile(read_handle, buf.as_mut_ptr() as *mut _, buf.len() as DWORD, &mut bytes_read, std::ptr::null_mut()) != 0 {
+                    if bytes_read == 0 {
+                        break;
+                    }
+                    let _ = std::io::stdout().write_all(&buf[..bytes_read as usize]);
+                    let _ = std::io::stdout().flush();
+                }
+                CloseHandle(read_handle);
+            }
+        });
+
+        // 2. Start window tracker & foregrounder thread on Default desktop
+        std::thread::spawn(move || {
+            let desk_name: Vec<u16> = "Default\0".encode_utf16().collect();
+            let hdesk = unsafe { OpenDesktopW(desk_name.as_ptr(), 0, 0, 0x01FF) };
+            if hdesk == 0 {
+                eprintln!("[Runner] Warning: Could not open 'Default' desktop for window tracking");
+                return;
+            }
+            unsafe {
+                SetThreadDesktop(hdesk);
+            }
+
+            struct WindowItem {
+                hwnd: HWND,
+                rect: RECT,
+                visible: bool,
+            }
+
+            struct WindowFinder {
+                pid: u32,
+                windows: Vec<WindowItem>,
+            }
+
+            unsafe extern "system" fn enum_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
+                let finder = &mut *(lparam as *mut WindowFinder);
+                let mut wpid: DWORD = 0;
+                GetWindowThreadProcessId(hwnd, &mut wpid);
+                if wpid == finder.pid {
+                    let mut class_buf = [0u16; 256];
+                    let len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), 256);
+                    let class_name = String::from_utf16_lossy(&class_buf[..len as usize]);
+                    if class_name == "SDL_app" {
+                        let mut rect = RECT::default();
+                        GetWindowRect(hwnd, &mut rect);
+                        let is_vis = IsWindowVisible(hwnd) != 0;
+                        if rect.right - rect.left > 100 {
+                            finder.windows.push(WindowItem { hwnd, rect, visible: is_vis });
+                        }
+                    }
+                }
+                1 // continue search to find all windows
+            }
+
+            let screen_w = unsafe { GetSystemMetrics(0) };
+            let screen_h = unsafe { GetSystemMetrics(1) };
+            let mut last_size = (0, 0);
+
+            // Track for up to 60 iterations (30 seconds) to catch initial window and GOP resolution change
+            for _ in 0..60 {
+                std::thread::sleep(Duration::from_millis(500));
+
+                let wait_code = unsafe { WaitForSingleObject(child_process, 0) };
+                if wait_code == 0 {
+                    break;
+                }
+
+                let mut finder = WindowFinder {
+                    pid: child_pid,
+                    windows: Vec::new(),
+                };
+
+                unsafe {
+                    EnumDesktopWindows(hdesk, enum_cb, &mut finder as *mut _ as LPARAM);
+                }
+
+                if !finder.windows.is_empty() {
+                    // Sort descending by window area so the largest (main GOP canvas) is first
+                    finder.windows.sort_by(|a, b| {
+                        let area_a = (a.rect.right - a.rect.left) * (a.rect.bottom - a.rect.top);
+                        let area_b = (b.rect.right - b.rect.left) * (b.rect.bottom - b.rect.top);
+                        area_b.cmp(&area_a)
+                    });
+
+                    let main_win = &finder.windows[0];
+                    let main_hwnd = main_win.hwnd;
+                    let w = main_win.rect.right - main_win.rect.left;
+                    let h = main_win.rect.bottom - main_win.rect.top;
+                    let target_x = (screen_w - w).max(0) / 2;
+                    let target_y = (screen_h - h).max(0) / 2;
+
+                    // If main GOP canvas is up, hide any smaller stale text-mode windows
+                    if w > 800 {
+                        for aux in finder.windows.iter().skip(1) {
+                            if aux.visible {
+                                unsafe { ShowWindow(aux.hwnd, SW_HIDE); }
+                            }
+                        }
+                    }
+
+                    if (w, h) != last_size || main_win.rect.left != target_x || main_win.rect.top != target_y {
+                        last_size = (w, h);
+                        unsafe {
+                            MoveWindow(main_hwnd, target_x, target_y, w, h, 1);
+                            ShowWindow(main_hwnd, SW_RESTORE);
+                            ShowWindow(main_hwnd, SW_SHOW);
+                            SetWindowPos(main_hwnd, HWND_TOPMOST, target_x, target_y, w, h, SWP_SHOWWINDOW);
+                            SetWindowPos(main_hwnd, HWND_NOTOPMOST, target_x, target_y, w, h, SWP_SHOWWINDOW);
+                            SetForegroundWindow(main_hwnd);
+                            BringWindowToTop(main_hwnd);
+                            SwitchToThisWindow(main_hwnd, 1);
+                        }
+                    }
+                }
+            }
+
+            unsafe {
+                CloseDesktop(hdesk);
+            }
+        });
+
+        // 3. Wait indefinitely for QEMU process to finish while user interacts with it
+        println!("[Runner] Micro-OS display active on desktop. Press Ctrl+C or close QEMU window to stop.");
+        unsafe {
+            WaitForSingleObject(pi.hProcess, INFINITE);
+            let mut exit_code: DWORD = 0;
+            GetExitCodeProcess(pi.hProcess, &mut exit_code);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        }
+
+        println!("[Runner] QEMU session terminated.");
         Ok(())
     }
 }
