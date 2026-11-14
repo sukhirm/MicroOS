@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(abi_x86_interrupt)]
 
 mod arch;
 mod framebuffer;
@@ -51,7 +52,36 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     log::info!("CPU Register CR4: {:?}", cpu_diag.cr4);
     log::info!("CPU RFLAGS: {:?}", cpu_diag.rflags);
 
-    // 4. Memory Diagnostics
+    let desc_diag = arch::x86_64::cpu::read_descriptor_diagnostics();
+    log::info!("Bootloader GDTR: base={:#018x}, limit={:#06x}", desc_diag.gdtr_base, desc_diag.gdtr_limit);
+    log::info!("Bootloader IDTR: base={:#018x}, limit={:#06x}", desc_diag.idtr_base, desc_diag.idtr_limit);
+    log::info!("Bootloader Segment Selectors: CS={:?}, SS={:?}, DS={:?}, ES={:?}, FS={:?}, GS={:?}",
+        desc_diag.cs, desc_diag.ss, desc_diag.ds, desc_diag.es, desc_diag.fs, desc_diag.gs);
+    log::info!("Bootloader Task Register (TR): {:#06x}", desc_diag.tr);
+
+    // 4. Initialize Kernel-owned GDT & TSS with dedicated Double Fault IST
+    log::info!("Initializing kernel-owned GDT and TSS...");
+    arch::x86_64::gdt::init();
+    let kernel_desc_diag = arch::x86_64::cpu::read_descriptor_diagnostics();
+    log::info!("Kernel GDTR: base={:#018x}, limit={:#06x}", kernel_desc_diag.gdtr_base, kernel_desc_diag.gdtr_limit);
+    log::info!("Kernel Segment Selectors: CS={:?}, SS={:?}, DS={:?}, ES={:?}",
+        kernel_desc_diag.cs, kernel_desc_diag.ss, kernel_desc_diag.ds, kernel_desc_diag.es);
+    log::info!("Kernel Task Register (TR): {:#06x}", kernel_desc_diag.tr);
+    log::info!("Kernel GDT and TSS initialization complete.");
+
+    // 5. Initialize Interrupt Descriptor Table (IDT) with hardware exception handlers
+    log::info!("Initializing Interrupt Descriptor Table (IDT)...");
+    arch::x86_64::idt::init();
+    let idt_diag = arch::x86_64::cpu::read_descriptor_diagnostics();
+    log::info!("Kernel IDTR: base={:#018x}, limit={:#06x}", idt_diag.idtr_base, idt_diag.idtr_limit);
+    log::info!("Kernel IDT initialized (handlers: #BP, #DF with IST1, #GP, #PF).");
+
+    // 6. Test controlled exception dispatch (Breakpoint #BP)
+    log::info!("Testing controlled exception dispatch via int3 (software breakpoint)...");
+    x86_64::instructions::interrupts::int3();
+    log::info!("Exception verification complete: returned successfully from #BP handler.");
+
+    // 7. Memory Diagnostics
     let mut usable_bytes: u64 = 0;
     let mut usable_regions: usize = 0;
     let total_regions = boot_info.memory_regions.len();
