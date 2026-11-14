@@ -9,6 +9,14 @@ fn main() -> anyhow::Result<()> {
     let is_headless = args.iter().any(|a| a == "--headless") || is_test_mode;
     let is_release = args.iter().any(|a| a == "--release");
 
+    let display_backend = if is_headless {
+        "none".to_string()
+    } else if let Some(pos) = args.iter().position(|a| a == "--display") {
+        args.get(pos + 1).cloned().unwrap_or_else(|| "sdl".to_string())
+    } else {
+        "sdl".to_string()
+    };
+
     println!("================================================================");
     println!("             Micro-OS Host Build & Test Runner                  ");
     println!("================================================================");
@@ -72,10 +80,7 @@ fn main() -> anyhow::Result<()> {
     qemu_cmd.arg("-drive").arg(format!("format=raw,file={}", uefi_img_path.display()));
     qemu_cmd.arg("-m").arg("512M");
     qemu_cmd.arg("-serial").arg("stdio");
-
-    if is_headless {
-        qemu_cmd.arg("-display").arg("none");
-    }
+    qemu_cmd.arg("-display").arg(&display_backend);
 
     if is_test_mode {
         println!("[Runner] Running in automated verification mode (headless)...");
@@ -119,7 +124,7 @@ fn main() -> anyhow::Result<()> {
             anyhow::bail!("Verification timed out or did not detect kernel boot success banner");
         }
     } else {
-        println!("[Runner] Launching QEMU...");
+        println!("[Runner] Launching QEMU with graphical window (display: {})...", display_backend);
         let mut child = qemu_cmd.spawn()?;
         let _ = child.wait();
         Ok(())

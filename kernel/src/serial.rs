@@ -6,6 +6,11 @@ use spin::Mutex;
 use uart_16550::SerialPort;
 
 /// Global spinlock-protected COM1 serial port interface.
+///
+/// # Safety
+/// 0x3F8 is the standard base I/O port address for the primary 16550 UART (COM1)
+/// on IBM PC-compatible x86_64 architectures. The port is exclusively owned and synchronized
+/// by this static Mutex, preventing concurrent access and race conditions.
 pub static SERIAL1: Mutex<SerialPort> = Mutex::new(unsafe { SerialPort::new(0x3F8) });
 
 /// Initializes the COM1 16550 UART port with 115200 baud, 8N1.

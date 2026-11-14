@@ -7,11 +7,14 @@
     Runs in automated verification mode and exits upon detecting boot completion.
 .PARAMETER Release
     Runs the release build image.
+.PARAMETER Display
+    Graphical display backend (default: sdl).
 #>
 param(
     [switch]$Headless,
     [switch]$Test,
-    [switch]$Release
+    [switch]$Release,
+    [string]$Display = "sdl"
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,8 +24,13 @@ $RootDir = Split-Path -Parent $ScriptDir
 Set-Location $RootDir
 
 $RunnerArgs = @()
-if ($Headless) { $RunnerArgs += "--headless" }
-if ($Test) { $RunnerArgs += "--test" }
+if ($Headless) { 
+    $RunnerArgs += "--headless" 
+} elseif ($Test) { 
+    $RunnerArgs += "--test" 
+} else {
+    $RunnerArgs += @("--display", $Display)
+}
 if ($Release) { $RunnerArgs += "--release" }
 
 Write-Host "==> Launching Micro-OS via Runner ($RunnerArgs)..." -ForegroundColor Cyan
