@@ -6,6 +6,7 @@ extern crate alloc;
 
 mod arch;
 mod framebuffer;
+mod graphics;
 mod logger;
 mod memory;
 mod panic;
@@ -97,7 +98,11 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     memory::init(memory_regions, phys_mem_offset);
     memory::run_heap_self_tests();
 
-    // 8. Synchronization Subsystem (Phase 3C)
+    // 8. Graphics Subsystem Self-Tests (Phase 4A)
+    log::info!("Initializing Phase 4A Graphics Subsystem...");
+    graphics::run_self_tests();
+
+    // 9. Synchronization Subsystem (Phase 3C)
     log::info!("Initializing Phase 3C Synchronization Subsystem...");
     sync::run_self_tests();
 
@@ -164,6 +169,15 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         let mut writer = framebuffer::FramebufferWriter::new(fb);
         writer.render_boot_screen();
         log::info!("Rendered Cosmic Slate / Obsidian Azure diagnostic splash canvas.");
+
+        // Phase 4A: Initialize double buffer, render graphics demo screen, and present
+        log::info!("Initializing Phase 4A double-buffered graphics showcase...");
+        let mut backbuffer = unsafe {
+            graphics::create_backbuffer_surface(info.width, info.height, info.stride, info.pixel_format)
+        };
+        graphics::render_demo(&mut backbuffer);
+        graphics::present(&backbuffer, fb);
+        log::info!("Rendered Phase 4A Graphics Engine demonstration screen (double-buffered).");
     } else {
         log::warn!("No linear framebuffer detected; running in headless/serial mode.");
     }

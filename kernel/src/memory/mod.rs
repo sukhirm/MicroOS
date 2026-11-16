@@ -20,6 +20,12 @@ pub const HEAP_START: usize = 0x_4444_4444_0000;
 /// Fixed size of the kernel heap: 1 MiB (256 pages of 4 KiB each).
 pub const HEAP_SIZE: usize = 1024 * 1024;
 
+/// Fixed virtual address where the dedicated 4 MiB graphics backbuffer begins.
+pub const BACKBUFFER_START: usize = 0x_4444_5000_0000;
+
+/// Fixed size of the graphics backbuffer: 4 MiB (1024 pages of 4 KiB each).
+pub const BACKBUFFER_SIZE: usize = 4 * 1024 * 1024;
+
 /// Initializes the complete memory management subsystem:
 /// 1. Physical frame allocator backed by bootloader memory map.
 /// 2. Active Level-4 page table mapper.
@@ -49,6 +55,23 @@ pub fn init(memory_regions: &'static MemoryRegions, phys_mem_offset: u64) {
 
     log::info!(
         "Kernel virtual heap mapped successfully ({} physical frames allocated).",
+        frame_allocator.allocated_frames()
+    );
+
+    let backbuffer_start = VirtAddr::new(BACKBUFFER_START as u64);
+    log::info!(
+        "Mapping dedicated graphics backbuffer: {:#018x} - {:#018x} ({} KiB)...",
+        BACKBUFFER_START,
+        BACKBUFFER_START + BACKBUFFER_SIZE,
+        BACKBUFFER_SIZE / 1024
+    );
+    paging::map_memory_region(backbuffer_start, BACKBUFFER_SIZE, &mut mapper, &mut frame_allocator)
+        .expect("Failed to map graphics backbuffer virtual memory");
+    unsafe {
+        core::ptr::write_bytes(BACKBUFFER_START as *mut u8, 0, BACKBUFFER_SIZE);
+    }
+    log::info!(
+        "Graphics backbuffer mapped successfully ({} total physical frames allocated).",
         frame_allocator.allocated_frames()
     );
 

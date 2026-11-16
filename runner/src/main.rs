@@ -265,6 +265,61 @@ fn main() -> anyhow::Result<()> {
                 pattern: "[SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!",
                 passed: false,
             },
+            MilestoneCheck {
+                name: "34. Surface geometry & boundary detection test",
+                pattern: "[PASS] 1. Surface geometry, stride, and boundary detection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "35. Pixel rendering & format translation (RGB/BGR) test",
+                pattern: "[PASS] 2. Pixel rendering, format translation (RGB/BGR), and boundary safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "36. Clipping rectangle enforcement test",
+                pattern: "[PASS] 3. Clipping rectangle enforcement and zero-bleed validation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "37. Solid & stroked rectangle rendering test",
+                pattern: "[PASS] 4. Solid rectangle filling and stroked outline rendering test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "38. Line drawing (Bresenham) test",
+                pattern: "[PASS] 5. Line drawing (horizontal, vertical, Bresenham diagonal) test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "39. Rounded rectangle geometry test",
+                pattern: "[PASS] 6. Rounded rectangle geometry and corner curvature test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "40. Scaled text rendering & typography measurement test",
+                pattern: "[PASS] 7. Text rendering, integer scaling (1x/2x), and typography measurement test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "41. Embedded icon transparency test",
+                pattern: "[PASS] 8. Embedded bitmap icon rendering and transparency preservation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "42. Dedicated 4 MiB backbuffer mapping & blit test",
+                pattern: "[PASS] 9. Dedicated 4 MiB backbuffer mapping and off-screen blit fidelity test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "43. All Phase 4A graphics self-tests passed",
+                pattern: "[OK] All Phase 4A Graphics Engine Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "44. Double-buffered graphics showcase screen rendered",
+                pattern: "Rendered Phase 4A Graphics Engine demonstration screen (double-buffered).",
+                passed: false,
+            },
         ];
 
         let mut captured_lines = Vec::new();
@@ -304,7 +359,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B & Phase 3C Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C & Phase 4A Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {

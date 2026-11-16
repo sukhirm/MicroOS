@@ -41,22 +41,22 @@ impl From<MapToError<Size4KiB>> for HeapMapError {
     }
 }
 
-/// Verifies and maps a virtual memory range for the kernel heap.
+/// Verifies and maps a virtual memory range with 4 KiB pages.
 ///
-/// Ensures every page in `[heap_start, heap_start + heap_size)` is currently unmapped
+/// Ensures every page in `[start_addr, start_addr + size)` is currently unmapped
 /// before allocating physical frames and creating Level 1..4 page table entries.
-pub fn map_heap_pages(
-    heap_start: VirtAddr,
-    heap_size: usize,
+pub fn map_memory_region(
+    start_addr: VirtAddr,
+    size: usize,
     mapper: &mut OffsetPageTable<'static>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), HeapMapError> {
-    let heap_end = heap_start + (heap_size as u64) - 1u64;
-    let start_page = Page::<Size4KiB>::containing_address(heap_start);
-    let end_page = Page::<Size4KiB>::containing_address(heap_end);
+    let end_addr = start_addr + (size as u64) - 1u64;
+    let start_page = Page::<Size4KiB>::containing_address(start_addr);
+    let end_page = Page::<Size4KiB>::containing_address(end_addr);
     let page_range = Page::range_inclusive(start_page, end_page);
 
-    // 1. Verification pass: Ensure none of the proposed heap pages are already mapped
+    // 1. Verification pass: Ensure none of the proposed pages are already mapped
     for page in page_range {
         if mapper.translate_page(page).is_ok() {
             return Err(HeapMapError::AddressAlreadyMapped(page.start_address()));
@@ -78,4 +78,14 @@ pub fn map_heap_pages(
     }
 
     Ok(())
+}
+
+/// Verifies and maps a virtual memory range for the kernel heap.
+pub fn map_heap_pages(
+    heap_start: VirtAddr,
+    heap_size: usize,
+    mapper: &mut OffsetPageTable<'static>,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) -> Result<(), HeapMapError> {
+    map_memory_region(heap_start, heap_size, mapper, frame_allocator)
 }
