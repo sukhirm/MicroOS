@@ -365,6 +365,106 @@ fn main() -> anyhow::Result<()> {
                 pattern: "Rendered Phase 4B Desktop Environment Shell (wallpaper, status bar, dock, cursor).",
                 passed: false,
             },
+            MilestoneCheck {
+                name: "54. Window creation & default state test",
+                pattern: "[PASS] 1. Window creation, bounds, and default state test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "55. Unique window ID generation test",
+                pattern: "[PASS] 2. Unique window ID generation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "56. Window closing & collection purge test",
+                pattern: "[PASS] 3. Window closing, state transition, and collection purge test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "57. Window minimize & restore test",
+                pattern: "[PASS] 4. Window minimize and restore test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "58. Window maximize & restore test",
+                pattern: "[PASS] 5. Window maximize and restore dimensions test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "59. Active & inactive window focus test",
+                pattern: "[PASS] 6. Active and inactive window focus states test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "60. Z-order reordering & bring-to-front test",
+                pattern: "[PASS] 7. Z-order stack reordering and bring-to-front test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "61. Window movement & geometry test",
+                pattern: "[PASS] 8. Window movement and geometry recalculation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "62. Window resizing test",
+                pattern: "[PASS] 9. Window resizing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "63. Minimum dimensions enforcement test",
+                pattern: "[PASS] 10. Minimum window dimensions enforcement test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "64. Window coordinate hit-testing test",
+                pattern: "[PASS] 11. Window coordinate hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "65. Title bar boundaries & button exclusion test",
+                pattern: "[PASS] 12. Title bar boundaries and button exclusion test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "66. Control button hit-testing (Min/Max/Close) test",
+                pattern: "[PASS] 13. Control button hit-testing (Min, Max, Close) test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "67. Overlapping window hit-test & Z-order test",
+                pattern: "[PASS] 14. Overlapping window hit-test and Z-order priority test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "68. Screen boundary clipping & buffer safety test",
+                pattern: "[PASS] 15. Screen boundary clipping and buffer safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "69. Minimized window render omission test",
+                pattern: "[PASS] 16. Minimized window omission from render pass test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "70. Closed window render omission test",
+                pattern: "[PASS] 17. Closed window omission from render pass test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "71. Multi-window composite rendering test",
+                pattern: "[PASS] 18. Multi-window composite rendering and focus integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "72. All Phase 4C window manager self-tests passed",
+                pattern: "[OK] All Phase 4C Window Manager Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "73. Window manager desktop demonstration screen rendered",
+                pattern: "Rendered Phase 4C Window Manager demonstration screen (3 sample windows, Z-stacked).",
+                passed: false,
+            },
         ];
 
         let mut captured_lines = Vec::new();
@@ -404,7 +504,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C, Phase 4A & Phase 4B Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C, Phase 4A, Phase 4B & Phase 4C Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {

@@ -1,6 +1,6 @@
 //! Desktop Environment Shell Coordinator.
 //!
-//! Integrates the wallpaper, top status bar, floating application dock,
+//! Integrates the wallpaper, window manager, top status bar, floating application dock,
 //! and software mouse cursor into a cohesive graphical desktop environment.
 
 use super::cursor::Cursor;
@@ -8,6 +8,7 @@ use super::dock::render_dock;
 use super::status_bar::{render_status_bar, StatusMetrics};
 use super::wallpaper::render_wallpaper;
 use crate::graphics::surface::Surface;
+use crate::window::WindowManager;
 
 /// Primary Desktop Environment Shell.
 pub struct DesktopShell {
@@ -39,28 +40,49 @@ impl DesktopShell {
         &self.cursor
     }
 
-    /// Renders the complete desktop shell pipeline onto `surface`:
+    /// Renders the desktop shell pipeline without windows:
     /// 1. Wallpaper background
     /// 2. Top status bar
     /// 3. Bottom floating dock
     /// 4. Top-layer software cursor
     pub fn render(&mut self, surface: &mut Surface) {
+        self.render_with_wm(surface, None);
+    }
+
+    /// Renders the complete multi-layer desktop environment including managed windows:
+    /// 1. Desktop Wallpaper
+    /// 2. Managed Desktop Windows (in back-to-front Z-order)
+    /// 3. Top Status Bar (stays atop windows)
+    /// 4. Floating Application Dock (stays atop windows)
+    /// 5. Software Mouse Cursor (drawn last, atop all desktop layers)
+    pub fn render_with_wm(&mut self, surface: &mut Surface, wm: Option<&WindowManager>) {
         // 1. Desktop Wallpaper
         render_wallpaper(surface);
 
-        // 2. Top Status Bar
+        // 2. Desktop Windows (managed in Z-order)
+        if let Some(wm) = wm {
+            wm.render(surface);
+        }
+
+        // 3. Top Status Bar
         render_status_bar(surface, &self.metrics);
 
-        // 3. Floating Application Dock
+        // 4. Floating Application Dock
         render_dock(surface);
 
-        // 4. Software Mouse Cursor (drawn last, atop all desktop layers)
+        // 5. Software Mouse Cursor (drawn last, atop all desktop layers)
         self.cursor.render(surface);
     }
 }
 
-/// Convenience function rendering the complete desktop environment onto `surface`.
+/// Convenience function rendering the desktop environment without windows onto `surface`.
 pub fn render_desktop(surface: &mut Surface) {
     let mut shell = DesktopShell::new(surface.width() as u32, surface.height() as u32);
     shell.render(surface);
+}
+
+/// Convenience function rendering the complete desktop environment with windows onto `surface`.
+pub fn render_desktop_with_wm(surface: &mut Surface, wm: &WindowManager) {
+    let mut shell = DesktopShell::new(surface.width() as u32, surface.height() as u32);
+    shell.render_with_wm(surface, Some(wm));
 }

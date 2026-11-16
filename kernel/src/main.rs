@@ -14,6 +14,7 @@ mod panic;
 mod serial;
 mod sync;
 mod task;
+mod window;
 
 use bootloader_api::config::Mapping;
 use bootloader_api::info::MemoryRegionKind;
@@ -107,7 +108,11 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     log::info!("Initializing Phase 4B Desktop Subsystem...");
     desktop::run_self_tests();
 
-    // 10. Synchronization Subsystem (Phase 3C)
+    // 10. Window Manager Core Self-Tests (Phase 4C)
+    log::info!("Initializing Phase 4C Window Manager Subsystem...");
+    window::run_self_tests();
+
+    // 11. Synchronization Subsystem (Phase 3C)
     log::info!("Initializing Phase 3C Synchronization Subsystem...");
     sync::run_self_tests();
 
@@ -189,6 +194,13 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         desktop::render_desktop(&mut backbuffer);
         graphics::present(&backbuffer, fb);
         log::info!("Rendered Phase 4B Desktop Environment Shell (wallpaper, status bar, dock, cursor).");
+
+        // Phase 4C: Render the Desktop with Window Manager and sample windows
+        log::info!("Rendering Phase 4C Window Manager desktop showcase...");
+        let wm = window::create_demo_desktop(info.width as u32, info.height as u32);
+        desktop::render_desktop_with_wm(&mut backbuffer, &wm);
+        graphics::present(&backbuffer, fb);
+        log::info!("Rendered Phase 4C Window Manager demonstration screen (3 sample windows, Z-stacked).");
     } else {
         log::warn!("No linear framebuffer detected; running in headless/serial mode.");
     }

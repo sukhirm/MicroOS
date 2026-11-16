@@ -15,7 +15,7 @@ pub use cursor::Cursor;
 #[allow(unused_imports)]
 pub use dock::{get_dock_bounds, render_dock, DOCK_ITEMS};
 #[allow(unused_imports)]
-pub use shell::{render_desktop, DesktopShell};
+pub use shell::{render_desktop, render_desktop_with_wm, DesktopShell};
 #[allow(unused_imports)]
 pub use status_bar::{render_status_bar, StatusMetrics, STATUS_BAR_HEIGHT};
 pub use tests::run_self_tests;
