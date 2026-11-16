@@ -320,6 +320,51 @@ fn main() -> anyhow::Result<()> {
                 pattern: "Rendered Phase 4A Graphics Engine demonstration screen (double-buffered).",
                 passed: false,
             },
+            MilestoneCheck {
+                name: "45. Wallpaper cosmic canvas & grid test",
+                pattern: "[PASS] 1. Wallpaper cosmic canvas, grid, and geometric accents test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "46. Status bar geometry & honest metrics test",
+                pattern: "[PASS] 2. Status bar geometry (34px), top placement, and honest metrics test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "47. Floating dock positioning & centering test",
+                pattern: "[PASS] 3. Floating dock positioning, horizontal centering, and geometry test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "48. Dock 6-application icon mapping test",
+                pattern: "[PASS] 4. Dock 6-application icon mapping, card slots, and labels test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "49. Mouse cursor 12x18 sprite bounds & clipping test",
+                pattern: "[PASS] 5. Mouse cursor 12x18 sprite bounds, clipping, and restore test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "50. Desktop resolution adaptation & stride test",
+                pattern: "[PASS] 6. Desktop shell resolution adaptation & stride compatibility test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "51. Desktop shell multi-layer composite test",
+                pattern: "[PASS] 7. Desktop shell multi-layer composite integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "52. All Phase 4B desktop self-tests passed",
+                pattern: "[OK] All Phase 4B Desktop Shell Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "53. Desktop environment shell rendered",
+                pattern: "Rendered Phase 4B Desktop Environment Shell (wallpaper, status bar, dock, cursor).",
+                passed: false,
+            },
         ];
 
         let mut captured_lines = Vec::new();
@@ -359,7 +404,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C & Phase 4A Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C, Phase 4A & Phase 4B Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {

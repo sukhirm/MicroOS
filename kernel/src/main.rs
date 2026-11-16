@@ -5,6 +5,7 @@
 extern crate alloc;
 
 mod arch;
+mod desktop;
 mod framebuffer;
 mod graphics;
 mod logger;
@@ -102,7 +103,11 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     log::info!("Initializing Phase 4A Graphics Subsystem...");
     graphics::run_self_tests();
 
-    // 9. Synchronization Subsystem (Phase 3C)
+    // 9. Desktop Environment Shell Self-Tests (Phase 4B)
+    log::info!("Initializing Phase 4B Desktop Subsystem...");
+    desktop::run_self_tests();
+
+    // 10. Synchronization Subsystem (Phase 3C)
     log::info!("Initializing Phase 3C Synchronization Subsystem...");
     sync::run_self_tests();
 
@@ -178,6 +183,12 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         graphics::render_demo(&mut backbuffer);
         graphics::present(&backbuffer, fb);
         log::info!("Rendered Phase 4A Graphics Engine demonstration screen (double-buffered).");
+
+        // Phase 4B: Render the complete Desktop Environment Shell
+        log::info!("Rendering Phase 4B Desktop Environment Shell...");
+        desktop::render_desktop(&mut backbuffer);
+        graphics::present(&backbuffer, fb);
+        log::info!("Rendered Phase 4B Desktop Environment Shell (wallpaper, status bar, dock, cursor).");
     } else {
         log::warn!("No linear framebuffer detected; running in headless/serial mode.");
     }
