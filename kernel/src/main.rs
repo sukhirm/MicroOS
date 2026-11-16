@@ -2,9 +2,12 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
+extern crate alloc;
+
 mod arch;
 mod framebuffer;
 mod logger;
+mod memory;
 mod panic;
 mod serial;
 
@@ -81,7 +84,18 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     x86_64::instructions::interrupts::int3();
     log::info!("Exception verification complete: returned successfully from #BP handler.");
 
-    // 7. Memory Diagnostics
+    // 7. Memory Management & Heap Allocator (Phase 3A)
+    log::info!("Initializing Phase 3A Memory Management Subsystem...");
+    let phys_mem_offset = boot_info
+        .physical_memory_offset
+        .into_option()
+        .expect("Bootloader did not provide physical memory offset");
+    // SAFETY: boot_info is statically allocated and valid for the entire runtime.
+    let memory_regions = unsafe { &*core::ptr::addr_of!(boot_info.memory_regions) };
+    memory::init(memory_regions, phys_mem_offset);
+    memory::run_heap_self_tests();
+
+    // 8. Memory Diagnostics
     let mut usable_bytes: u64 = 0;
     let mut usable_regions: usize = 0;
     let total_regions = boot_info.memory_regions.len();

@@ -126,7 +126,52 @@ fn main() -> anyhow::Result<()> {
                 passed: false,
             },
             MilestoneCheck {
-                name: "6. Phase 1 kernel boot completion banner",
+                name: "6. Kernel virtual heap mapped (1 MiB)",
+                pattern: "Kernel virtual heap mapped successfully",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "7. Kernel heap allocator registered",
+                pattern: "Kernel heap allocator registered and active.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "8. Box allocation & deallocation test",
+                pattern: "[PASS] Box allocation & deallocation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "9. Vec allocation & dynamic growth test",
+                pattern: "[PASS] Vec allocation & growth test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "10. String allocation & formatting test",
+                pattern: "[PASS] String allocation & formatting test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "11. 64-byte memory alignment verification",
+                pattern: "[PASS] Memory alignment verification",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "12. Multiple allocations & free-list coalescing",
+                pattern: "[PASS] Multiple allocations & free-list re-use test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "13. Allocation failure handling (2 MiB bounds)",
+                pattern: "[PASS] Allocation failure handling",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "14. All Phase 3A heap self-tests passed",
+                pattern: "[OK] All Phase 3A Heap Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "15. Phase 1 kernel boot completion banner",
                 pattern: "[SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!",
                 passed: false,
             },
@@ -169,7 +214,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1 & Phase 2 Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2 & Phase 3A Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {
