@@ -171,7 +171,67 @@ fn main() -> anyhow::Result<()> {
                 passed: false,
             },
             MilestoneCheck {
-                name: "15. Phase 1 kernel boot completion banner",
+                name: "15. Task ID uniqueness self-test",
+                pattern: "[PASS] Task ID uniqueness test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "16. Task state transition self-test",
+                pattern: "[PASS] Task state transition test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "17. Ready queue FIFO & empty operations self-test",
+                pattern: "[PASS] Ready queue FIFO & empty operations test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "18. Task stack 16-byte alignment self-test",
+                pattern: "[PASS] Task stack 16-byte alignment test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "19. All Phase 3B task self-tests passed",
+                pattern: "[OK] All Phase 3B Task Subsystem Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "20. Task Alpha execution & cooperative yield",
+                pattern: "[Task Alpha] (PID: 10) Step 1/3 - yielding CPU cooperatively",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "21. Task Beta execution & cooperative yield",
+                pattern: "[Task Beta] (PID: 11) Step 1/3 - yielding CPU cooperatively",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "22. Alternating round-robin context switch (Alpha Step 2)",
+                pattern: "[Task Alpha] (PID: 10) Step 2/3 - yielding CPU cooperatively",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "23. Alternating round-robin context switch (Beta Step 2)",
+                pattern: "[Task Beta] (PID: 11) Step 2/3 - yielding CPU cooperatively",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "24. Task Alpha clean termination",
+                pattern: "[Scheduler] Task PID: 10 ('Task Alpha') marked Terminated.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "25. Task Beta clean termination",
+                pattern: "[Scheduler] Task PID: 11 ('Task Beta') marked Terminated.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "26. Return to main kernel thread",
+                pattern: "[Scheduler] All worker tasks completed. Execution returned to main thread.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "27. Phase 1 kernel boot completion banner",
                 pattern: "[SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!",
                 passed: false,
             },
@@ -214,7 +274,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2 & Phase 3A Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A & Phase 3B Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {

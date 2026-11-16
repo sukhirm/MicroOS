@@ -10,6 +10,7 @@ mod logger;
 mod memory;
 mod panic;
 mod serial;
+mod task;
 
 use bootloader_api::config::Mapping;
 use bootloader_api::info::MemoryRegionKind;
@@ -95,7 +96,12 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     memory::init(memory_regions, phys_mem_offset);
     memory::run_heap_self_tests();
 
-    // 8. Memory Diagnostics
+    // 8. Task Management & Cooperative Context Switching (Phase 3B)
+    log::info!("Initializing Phase 3B Task Subsystem...");
+    task::run_self_tests();
+    task::run_demo();
+
+    // 9. Memory Diagnostics
     let mut usable_bytes: u64 = 0;
     let mut usable_regions: usize = 0;
     let total_regions = boot_info.memory_regions.len();
