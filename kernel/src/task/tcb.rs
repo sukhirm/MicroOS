@@ -1,7 +1,7 @@
 //! Task Control Block (TCB) and Task Definitions.
 //!
 //! Provides the primary task descriptor, state management, dedicated heap-allocated
-//! stacks, and initial hardware execution contexts.
+//! stacks, and unified 672-byte hardware/software execution contexts including FPU/SIMD state.
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -81,18 +81,56 @@ impl TaskStack {
     }
 }
 
-/// Hardware context layout saved on the task stack during context switch.
-#[repr(C)]
+/// 512-byte FPU/MMX/SSE state buffer aligned to 16 bytes for FXSAVE/FXRSTOR.
+#[repr(C, align(16))]
 #[derive(Debug, Clone, Copy)]
-pub struct TaskContext {
-    pub rflags: u64,
+pub struct FxSaveArea {
+    pub data: [u8; 512],
+}
+
+impl FxSaveArea {
+    /// Creates a clean, standard initial FPU/SSE state for newly created tasks.
+    pub fn new_initial() -> Self {
+        let mut area = Self { data: [0u8; 512] };
+        // fcw (offset 0): 0x037F (all x87 exceptions masked, 64-bit precision, round to nearest)
+        area.data[0] = 0x7F;
+        area.data[1] = 0x03;
+        // mxcsr (offset 24): 0x1F80 (all SIMD exceptions masked, round to nearest)
+        area.data[24] = 0x80;
+        area.data[25] = 0x1F;
+        area
+    }
+}
+
+/// Unified 672-byte interrupt and context-switch frame.
+///
+/// Layout:
+/// - 0x000..0x1FF (512 bytes): FxSaveArea (x87 FPU, MMX, and SSE state, 16-byte aligned)
+/// - 0x200..0x277 (120 bytes): 15 General-Purpose Registers (r15..rax)
+/// - 0x278..0x29F (40 bytes): 5 Intel 64 hardware quadwords (RIP, CS, RFLAGS, RSP, SS)
+#[repr(C)]
+pub struct InterruptContext {
+    pub fxsave: FxSaveArea,
     pub r15: u64,
     pub r14: u64,
     pub r13: u64,
     pub r12: u64,
-    pub rbx: u64,
+    pub r11: u64,
+    pub r10: u64,
+    pub r9: u64,
+    pub r8: u64,
+    pub rdi: u64,
+    pub rsi: u64,
     pub rbp: u64,
+    pub rbx: u64,
+    pub rdx: u64,
+    pub rcx: u64,
+    pub rax: u64,
     pub rip: u64,
+    pub cs: u64,
+    pub rflags: u64,
+    pub rsp: u64,
+    pub ss: u64,
 }
 
 /// Task Control Block representing a schedulable unit of execution.
@@ -110,7 +148,7 @@ pub struct TaskControlBlock {
 unsafe impl Send for TaskControlBlock {}
 
 impl TaskControlBlock {
-    /// Creates a new task with an allocated heap stack and initialized stack frame.
+    /// Creates a new task with an allocated heap stack and initialized 672-byte frame.
     pub fn new(name: &'static str, entry_fn: extern "C" fn()) -> Box<Self> {
         let id = TaskId::new();
         let stack = TaskStack::new(TaskStack::DEFAULT_SIZE);
@@ -118,19 +156,36 @@ impl TaskControlBlock {
         assert!(!top.is_null(), "Task stack top cannot be null");
         assert_eq!(top as usize % 16, 0, "Stack top must be 16-byte aligned");
 
-        // Reserve 8 bytes so that after ret in switch_context, RSP % 16 == 8 on entry to task_trampoline.
-        let context_ptr = (top as usize - 8 - core::mem::size_of::<TaskContext>()) as *mut TaskContext;
+        let context_size = core::mem::size_of::<InterruptContext>();
+        assert_eq!(context_size, 672, "InterruptContext must be exactly 672 bytes");
+
+        // The context pointer is placed at top - 672. Since top % 16 == 0 and 672 % 16 == 0,
+        // context_ptr is guaranteed to be 16-byte aligned for FXSAVE/FXRSTOR.
+        let context_ptr = (top as usize - context_size) as *mut InterruptContext;
 
         unsafe {
-            context_ptr.write(TaskContext {
-                rflags: 0x2, // reserved bit 1 is always 1 in RFLAGS
+            context_ptr.write(InterruptContext {
+                fxsave: FxSaveArea::new_initial(),
                 r15: 0,
                 r14: 0,
                 r13: 0,
-                r12: entry_fn as usize as u64,
-                rbx: 0,
+                r12: entry_fn as *const () as usize as u64,
+                r11: 0,
+                r10: 0,
+                r9: 0,
+                r8: 0,
+                rdi: 0,
+                rsi: 0,
                 rbp: 0,
+                rbx: 0,
+                rdx: 0,
+                rcx: 0,
+                rax: 0,
                 rip: super::context::task_trampoline as *const () as usize as u64,
+                cs: 0x08,      // Kernel Code Segment selector (Ring 0)
+                rflags: 0x202, // IF=1 (interrupts enabled), reserved bit 1 set
+                rsp: top as u64,
+                ss: 0x10,      // Kernel Data Segment selector (Ring 0)
             });
         }
 

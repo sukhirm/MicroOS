@@ -186,52 +186,82 @@ fn main() -> anyhow::Result<()> {
                 passed: false,
             },
             MilestoneCheck {
-                name: "18. Task stack 16-byte alignment self-test",
+                name: "18. Task stack 16-byte alignment & 672B context test",
                 pattern: "[PASS] Task stack 16-byte alignment test",
                 passed: false,
             },
             MilestoneCheck {
-                name: "19. All Phase 3B task self-tests passed",
-                pattern: "[OK] All Phase 3B Task Subsystem Self-Tests Passed!",
+                name: "19. All Phase 3B/3C task self-tests passed",
+                pattern: "[OK] All Phase 3B/3C Task Subsystem Self-Tests Passed!",
                 passed: false,
             },
             MilestoneCheck {
-                name: "20. Task Alpha execution & cooperative yield",
-                pattern: "[Task Alpha] (PID: 10) Step 1/3 - yielding CPU cooperatively",
+                name: "20. IrqGuard atomic state capture & nesting test",
+                pattern: "[PASS] IrqGuard atomic state capture and nested preservation test",
                 passed: false,
             },
             MilestoneCheck {
-                name: "21. Task Beta execution & cooperative yield",
-                pattern: "[Task Beta] (PID: 11) Step 1/3 - yielding CPU cooperatively",
+                name: "21. SpinMutex mutual exclusion & try_lock test",
+                pattern: "[PASS] SpinMutex mutual exclusion and try_lock contention test",
                 passed: false,
             },
             MilestoneCheck {
-                name: "22. Alternating round-robin context switch (Alpha Step 2)",
-                pattern: "[Task Alpha] (PID: 10) Step 2/3 - yielding CPU cooperatively",
+                name: "22. Semaphore bounded capacity test",
+                pattern: "[PASS] Semaphore bounded capacity and atomic acquire/release test",
                 passed: false,
             },
             MilestoneCheck {
-                name: "23. Alternating round-robin context switch (Beta Step 2)",
-                pattern: "[Task Beta] (PID: 11) Step 2/3 - yielding CPU cooperatively",
+                name: "23. All Phase 3C synchronization self-tests passed",
+                pattern: "[OK] All Phase 3C Synchronization Self-Tests Passed!",
                 passed: false,
             },
             MilestoneCheck {
-                name: "24. Task Alpha clean termination",
-                pattern: "[Scheduler] Task PID: 10 ('Task Alpha') marked Terminated.",
+                name: "24. 8259 PIC initialized and IRQ0 unmasked",
+                pattern: "[PIC] 8259 PIC initialized",
                 passed: false,
             },
             MilestoneCheck {
-                name: "25. Task Beta clean termination",
-                pattern: "[Scheduler] Task PID: 11 ('Task Beta') marked Terminated.",
+                name: "25. 8254 PIT Mode 3 square wave at 100 Hz",
+                pattern: "[PIT] 8254 PIT initialized: Mode 3 square wave at 100 Hz",
                 passed: false,
             },
             MilestoneCheck {
-                name: "26. Return to main kernel thread",
+                name: "26. Task Alpha compute-bound loop started",
+                pattern: "Started compute-bound loop WITHOUT voluntary yields...",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "27. Task Beta preempted Task Alpha mid-computation",
+                pattern: "EXECUTING! Successfully preempted compute-bound Task Alpha",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "28. Non-yielding task preemption verified",
+                pattern: "[PASS] Non-yielding task preemption verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "29. Concurrent SpinMutex counter verified (2000)",
+                pattern: "[PASS] SpinMutex mutual exclusion verified (shared counter reached exactly 2000).",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "30. Semaphore cooperative acquire/release verified",
+                pattern: "[PASS] Semaphore cooperative acquire & release verified.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "31. Preemptive multitasking demo complete",
+                pattern: "[OK] Preemptive Multitasking Demonstration Complete!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "32. Return to main kernel thread",
                 pattern: "[Scheduler] All worker tasks completed. Execution returned to main thread.",
                 passed: false,
             },
             MilestoneCheck {
-                name: "27. Phase 1 kernel boot completion banner",
+                name: "33. Phase 1 kernel boot completion banner",
                 pattern: "[SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!",
                 passed: false,
             },
@@ -274,7 +304,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A & Phase 3B Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B & Phase 3C Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {

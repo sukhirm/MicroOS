@@ -1,41 +1,84 @@
-//! Task Management and Cooperative Context Switching Subsystem for Micro-OS.
+//! Task Management and Preemptive Scheduling Subsystem for Micro-OS.
 //!
-//! Provides Task Control Blocks (TCB), FIFO Ready Queue, cooperative round-robin scheduling,
-//! genuine assembly context switching, and multi-task demonstration.
+//! Provides Task Control Blocks (TCB), FIFO Ready Queue, round-robin scheduling,
+//! hardware timer preemption, FPU/SIMD state preservation, and multi-task demonstration.
 
 pub mod context;
 pub mod queue;
 pub mod scheduler;
 pub mod tcb;
 
-pub use scheduler::{current_task, spawn, start_multitasking, yield_now};
+pub use scheduler::{current_task, preemption_count, spawn, start_multitasking, yield_now};
 pub use tcb::{TaskId, TaskState};
 
-extern "C" fn task_alpha_entry() {
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use crate::sync::{Semaphore, SpinMutex};
+
+/// Global test state for Phase 3C preemption and synchronization verification.
+static ALPHA_SPIN_COUNT: AtomicU64 = AtomicU64::new(0);
+static PREEMPTION_OBSERVED: AtomicBool = AtomicBool::new(false);
+static MUTEX_COUNTER: SpinMutex<u64> = SpinMutex::new(0);
+static TEST_SEMAPHORE: Semaphore = Semaphore::new(1);
+
+/// Task Alpha: Compute-bound task that executes a heavy loop WITHOUT voluntarily yielding.
+extern "C" fn task_alpha_compute_hog() {
     let (id, name) = current_task().expect("Task Alpha must have active context");
-    log::info!("[{}] (PID: {}) Started execution on dedicated heap stack.", name, id.as_u64());
-    for step in 1..=3 {
-        log::info!("[{}] (PID: {}) Step {}/3 - yielding CPU cooperatively", name, id.as_u64(), step);
-        yield_now();
+    log::info!("[{}] (PID: {}) Started compute-bound loop WITHOUT voluntary yields...", name, id.as_u64());
+
+    // Heavy computation loop: does NOT call yield_now()
+    // It relies entirely on the 8254 PIT hardware timer interrupt to be preempted!
+    let target = 10_000_000u64;
+    for i in 0..target {
+        ALPHA_SPIN_COUNT.store(i, Ordering::Relaxed);
+        core::hint::black_box(i);
     }
-    log::info!("[{}] (PID: {}) Finished work; returning for clean termination.", name, id.as_u64());
+
+    log::info!("[{}] (PID: {}) Completed compute loop. Now testing SpinMutex under preemption...", name, id.as_u64());
+
+    // Concurrently increment shared mutex counter 1,000 times
+    for _ in 0..1000 {
+        let mut guard = MUTEX_COUNTER.lock();
+        *guard += 1;
+    }
+
+    log::info!("[{}] (PID: {}) Finished work cleanly; terminating.", name, id.as_u64());
 }
 
-extern "C" fn task_beta_entry() {
+/// Task Beta: Preempting worker task that executes when Task Alpha is preempted by the timer.
+extern "C" fn task_beta_preemptor() {
     let (id, name) = current_task().expect("Task Beta must have active context");
-    log::info!("[{}] (PID: {}) Started execution on dedicated heap stack.", name, id.as_u64());
-    for step in 1..=3 {
-        log::info!("[{}] (PID: {}) Step {}/3 - yielding CPU cooperatively", name, id.as_u64(), step);
-        yield_now();
+    let alpha_count = ALPHA_SPIN_COUNT.load(Ordering::Relaxed);
+
+    log::info!(
+        "[{}] (PID: {}) EXECUTING! Successfully preempted compute-bound Task Alpha at count: {}",
+        name,
+        id.as_u64(),
+        alpha_count
+    );
+
+    if alpha_count > 0 && alpha_count < 10_000_000 {
+        PREEMPTION_OBSERVED.store(true, Ordering::Relaxed);
     }
-    log::info!("[{}] (PID: {}) Finished work; returning for clean termination.", name, id.as_u64());
+
+    // Concurrently increment shared mutex counter 1,000 times
+    for _ in 0..1000 {
+        let mut guard = MUTEX_COUNTER.lock();
+        *guard += 1;
+    }
+
+    // Test Semaphore acquire and release
+    TEST_SEMAPHORE.acquire();
+    log::info!("[{}] (PID: {}) Acquired test semaphore; now releasing.", name, id.as_u64());
+    TEST_SEMAPHORE.release();
+
+    log::info!("[{}] (PID: {}) Finished work cleanly; terminating.", name, id.as_u64());
 }
 
 /// Runs comprehensive self-tests verifying TaskId uniqueness, state transitions,
-/// ready queue FIFO semantics, empty queue handling, and stack 16-byte alignment.
+/// ready queue FIFO semantics, empty queue handling, and 16-byte stack alignment.
 pub fn run_self_tests() {
     log::info!("================================================================");
-    log::info!("          Running Micro-OS Phase 3B Task Subsystem Self-Tests   ");
+    log::info!("          Running Micro-OS Phase 3B/3C Task Subsystem Self-Tests");
     log::info!("================================================================");
 
     // 1. Task ID uniqueness test
@@ -109,7 +152,7 @@ pub fn run_self_tests() {
         log::info!("  [PASS] Ready queue FIFO & empty operations test");
     }
 
-    // 4. Task stack 16-byte alignment verification
+    // 4. Task stack 16-byte alignment and 672-byte InterruptContext size verification
     {
         let stack = tcb::TaskStack::new(tcb::TaskStack::DEFAULT_SIZE);
         let top = stack.top();
@@ -121,35 +164,40 @@ pub fn run_self_tests() {
             top
         );
 
+        assert_eq!(
+            core::mem::size_of::<tcb::InterruptContext>(),
+            672,
+            "InterruptContext must be exactly 672 bytes (512 FXSAVE + 120 GPRs + 40 HW)"
+        );
+
         extern "C" fn align_dummy() {}
         let tcb = tcb::TaskControlBlock::new("align_test", align_dummy);
-        // context_ptr is at top - 72. (top - 72) % 16 == 8.
         let initial_rsp = tcb.rsp as usize;
         assert_eq!(
             initial_rsp % 16,
-            8,
-            "Initial context RSP must satisfy (top - 72) % 16 == 8 for System V ABI: {:#x}",
+            0,
+            "Initial context RSP must be 16-byte aligned for FXSAVE: {:#x}",
             initial_rsp
         );
         log::info!(
-            "  [PASS] Task stack 16-byte alignment test (stack top: {:p}, initial RSP: {:#x})",
+            "  [PASS] Task stack 16-byte alignment test (stack top: {:p}, initial RSP: {:#x}, context size: 672)",
             top, initial_rsp
         );
     }
 
     log::info!("================================================================");
-    log::info!("     [OK] All Phase 3B Task Subsystem Self-Tests Passed!        ");
+    log::info!("     [OK] All Phase 3B/3C Task Subsystem Self-Tests Passed!     ");
     log::info!("================================================================");
 }
 
-/// Demonstrates cooperative multitasking with Task Alpha and Task Beta.
-pub fn run_demo() {
+/// Demonstrates preemptive multitasking and synchronization with Task Alpha and Task Beta.
+pub fn run_preemption_demo() {
     log::info!("================================================================");
-    log::info!("     Starting Micro-OS Phase 3B Multitasking Demonstration     ");
+    log::info!("     Starting Micro-OS Phase 3C Preemptive Multitasking Demo    ");
     log::info!("================================================================");
 
-    let id_alpha = spawn("Task Alpha", task_alpha_entry);
-    let id_beta = spawn("Task Beta", task_beta_entry);
+    let id_alpha = spawn("Task Alpha", task_alpha_compute_hog);
+    let id_beta = spawn("Task Beta", task_beta_preemptor);
 
     log::info!(
         "[Demo] Spawned worker tasks: Task Alpha (PID: {}), Task Beta (PID: {})",
@@ -157,10 +205,36 @@ pub fn run_demo() {
         id_beta.as_u64()
     );
 
-    // Hand over execution to the cooperative round-robin scheduler
+    // Hand over execution to the preemptive round-robin scheduler
     start_multitasking();
 
     log::info!("================================================================");
-    log::info!("  [OK] Cooperative Multitasking Demonstration Complete!        ");
+    log::info!("       Verifying Phase 3C Preemption & Synchronization Outcomes ");
+    log::info!("================================================================");
+
+    // 1. Verify that Task Alpha was genuinely preempted mid-computation
+    let preemption_seen = PREEMPTION_OBSERVED.load(Ordering::Relaxed);
+    assert!(
+        preemption_seen,
+        "Preemption verification failed: Task Beta did not execute while Task Alpha was computing!"
+    );
+    log::info!("  [PASS] Non-yielding task preemption verified (Task Alpha interrupted by 8254 PIT timer).");
+    log::info!("  [PASS] Total timer preemption events recorded: {}", preemption_count());
+
+    // 2. Verify that SpinMutex protected shared counter without lost updates
+    let final_counter = *MUTEX_COUNTER.lock();
+    assert_eq!(
+        final_counter, 2000,
+        "SpinMutex concurrent counter mismatch: expected 2000, got {}",
+        final_counter
+    );
+    log::info!("  [PASS] SpinMutex mutual exclusion verified (shared counter reached exactly 2000).");
+
+    // 3. Verify Semaphore operation
+    assert_eq!(TEST_SEMAPHORE.count(), 1, "Semaphore permit must be 1 after release");
+    log::info!("  [PASS] Semaphore cooperative acquire & release verified.");
+
+    log::info!("================================================================");
+    log::info!("  [OK] Preemptive Multitasking Demonstration Complete!          ");
     log::info!("================================================================");
 }

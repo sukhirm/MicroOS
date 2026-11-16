@@ -10,6 +10,7 @@ mod logger;
 mod memory;
 mod panic;
 mod serial;
+mod sync;
 mod task;
 
 use bootloader_api::config::Mapping;
@@ -96,12 +97,30 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     memory::init(memory_regions, phys_mem_offset);
     memory::run_heap_self_tests();
 
-    // 8. Task Management & Cooperative Context Switching (Phase 3B)
-    log::info!("Initializing Phase 3B Task Subsystem...");
-    task::run_self_tests();
-    task::run_demo();
+    // 8. Synchronization Subsystem (Phase 3C)
+    log::info!("Initializing Phase 3C Synchronization Subsystem...");
+    sync::run_self_tests();
 
-    // 9. Memory Diagnostics
+    // 9. Task Management Subsystem (Phase 3B/3C)
+    log::info!("Initializing Task Subsystem...");
+    task::run_self_tests();
+
+    // 10. Hardware Timer & Interrupt Controller (Phase 3C)
+    log::info!("Initializing 8259 PIC and 8254 PIT (100 Hz timer)...");
+    unsafe {
+        arch::x86_64::pic::init();
+        arch::x86_64::timer::init();
+    }
+
+    // 11. Run Phase 3C Preemptive Multitasking Demo
+    log::info!("Starting Phase 3C Preemptive Multitasking Demonstration...");
+    // SAFETY: Enabling interrupts now that IDT (vector 32/33), PIC, PIT, and scheduler are fully initialized
+    x86_64::instructions::interrupts::enable();
+    task::run_preemption_demo();
+    // Disable interrupts after multitasking demonstration completes
+    x86_64::instructions::interrupts::disable();
+
+    // 12. Memory Diagnostics
     let mut usable_bytes: u64 = 0;
     let mut usable_regions: usize = 0;
     let total_regions = boot_info.memory_regions.len();

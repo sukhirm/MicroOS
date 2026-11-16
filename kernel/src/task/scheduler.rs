@@ -1,24 +1,30 @@
-//! Cooperative Task Scheduler.
+//! Preemptive and Cooperative Task Scheduler.
 //!
-//! Provides thread-safe task management, round-robin scheduling, task yielding,
-//! and clean task termination returning to the kernel main thread.
+//! Provides thread-safe task management, round-robin scheduling, timer preemption,
+//! time-slice tracking, and clean task termination returning to the kernel main thread.
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use spin::mutex::SpinMutex;
 
+use crate::sync::IrqGuard;
 use super::queue::ReadyQueue;
 use super::tcb::{TaskControlBlock, TaskId, TaskState};
 
-/// Global cooperative scheduler instance.
+/// Default time slice in timer ticks: 3 ticks (30 ms at 100 Hz).
+pub const TIME_SLICE_TICKS: usize = 3;
+
+/// Global cooperative and preemptive scheduler instance.
 pub static SCHEDULER: SpinMutex<Scheduler> = SpinMutex::new(Scheduler::new());
 
-/// The cooperative round-robin scheduler.
+/// The round-robin preemptive scheduler.
 pub struct Scheduler {
     ready_queue: ReadyQueue,
     current_task: Option<Box<TaskControlBlock>>,
     main_task: Option<Box<TaskControlBlock>>,
     terminated_tasks: Vec<Box<TaskControlBlock>>,
+    current_task_ticks: usize,
+    preemption_count: usize,
 }
 
 impl Scheduler {
@@ -29,6 +35,8 @@ impl Scheduler {
             current_task: None,
             main_task: None,
             terminated_tasks: Vec::new(),
+            current_task_ticks: 0,
+            preemption_count: 0,
         }
     }
 
@@ -46,45 +54,6 @@ impl Scheduler {
         id
     }
 
-    /// Prepares to commence multitasking by saving the main thread descriptor
-    /// and selecting the first task from the ready queue.
-    pub fn start(&mut self) -> Option<(*mut *mut u8, *mut u8)> {
-        let mut first_task = self.ready_queue.dequeue()?;
-        first_task.state = TaskState::Running;
-        let next_rsp = first_task.rsp;
-
-        let main_tcb = TaskControlBlock::new_main("main");
-        self.main_task = Some(main_tcb);
-        self.current_task = Some(first_task);
-
-        let prev_rsp_ptr = &mut self.main_task.as_mut().unwrap().rsp as *mut *mut u8;
-        Some((prev_rsp_ptr, next_rsp))
-    }
-
-    /// Prepares cooperative round-robin yield:
-    /// Returns the previous task's RSP storage pointer and the next task's target RSP.
-    pub fn prepare_yield(&mut self) -> Option<(*mut *mut u8, *mut u8)> {
-        if self.ready_queue.is_empty() {
-            // No other tasks waiting; current task continues execution.
-            return None;
-        }
-
-        let mut next_task = self.ready_queue.dequeue()?;
-        next_task.state = TaskState::Running;
-
-        let mut prev_task = self.current_task.take().expect("No current task while yielding");
-        prev_task.state = TaskState::Ready;
-
-        self.ready_queue.enqueue(prev_task);
-        self.current_task = Some(next_task);
-
-        // prev_task is now at the back of ready_queue (its heap address is stable)
-        let prev_rsp_ptr = &mut self.ready_queue.back_mut().unwrap().rsp as *mut *mut u8;
-        let next_rsp = self.current_task.as_ref().unwrap().rsp;
-
-        Some((prev_rsp_ptr, next_rsp))
-    }
-
     /// Prepares task termination:
     /// Marks the current task as Terminated, saves it in `terminated_tasks`,
     /// and selects either the next ready task or the main thread to resume.
@@ -100,6 +69,7 @@ impl Scheduler {
 
         if let Some(mut next_task) = self.ready_queue.dequeue() {
             next_task.state = TaskState::Running;
+            self.current_task_ticks = 0;
             let next_rsp = next_task.rsp;
             self.current_task = Some(next_task);
             next_rsp
@@ -108,73 +78,149 @@ impl Scheduler {
             log::info!("[Scheduler] Ready queue empty. Returning to main kernel thread.");
             let mut main_tcb = self.main_task.take().expect("Main task missing upon scheduler exit");
             main_tcb.state = TaskState::Running;
+            self.current_task_ticks = 0;
             let next_rsp = main_tcb.rsp;
             self.current_task = Some(main_tcb);
             next_rsp
         }
     }
 
-    /// Returns the currently running task's ID and name, if any.
+    /// Returns the total number of timer-driven preemptive context switches performed.
     #[allow(dead_code)]
+    pub fn preemption_count(&self) -> usize {
+        self.preemption_count
+    }
+
+    /// Returns the currently running task's ID and name, if any.
     pub fn current_task_info(&self) -> Option<(TaskId, &'static str)> {
         self.current_task.as_ref().map(|t| (t.id, t.name))
     }
 }
 
-/// Returns the currently running task's ID and name, if any.
-pub fn current_task() -> Option<(TaskId, &'static str)> {
-    SCHEDULER.lock().current_task_info()
-}
-
 /// Spawns a new task onto the global ready queue.
 pub fn spawn(name: &'static str, entry: extern "C" fn()) -> TaskId {
+    let _irq = IrqGuard::acquire();
     SCHEDULER.lock().spawn(name, entry)
 }
 
 /// Cooperatively yields the remainder of the current task's CPU slice.
+#[inline(always)]
 pub fn yield_now() {
-    let switch_data = {
-        let mut scheduler = SCHEDULER.lock();
-        scheduler.prepare_yield()
-    };
+    unsafe {
+        core::arch::asm!("int 33");
+    }
+}
 
-    if let Some((prev_rsp_ptr, next_rsp)) = switch_data {
-        // SAFETY: Both prev_rsp_ptr and next_rsp point to verified valid stack frames,
-        // and SCHEDULER lock has been cleanly released.
-        unsafe {
-            super::context::switch_context(prev_rsp_ptr, next_rsp);
+/// Called by `timer_interrupt_handler` on each hardware PIT tick.
+pub fn on_timer_tick(curr_rsp: *mut u8, _ticks: u64) -> *mut u8 {
+    let _irq = IrqGuard::acquire();
+    let mut sched = SCHEDULER.lock();
+
+    if sched.current_task.is_none() {
+        return curr_rsp;
+    }
+
+    sched.current_task_ticks += 1;
+
+    // Check if time slice has expired and there is another task ready to run
+    if sched.current_task_ticks >= TIME_SLICE_TICKS && !sched.ready_queue.is_empty() {
+        sched.preemption_count += 1;
+        sched.current_task_ticks = 0;
+
+        let mut curr_task = sched.current_task.take().unwrap();
+        curr_task.rsp = curr_rsp;
+        curr_task.state = TaskState::Ready;
+        sched.ready_queue.enqueue(curr_task);
+
+        let mut next_task = sched.ready_queue.dequeue().unwrap();
+        next_task.state = TaskState::Running;
+        let next_rsp = next_task.rsp;
+        sched.current_task = Some(next_task);
+
+        next_rsp
+    } else {
+        curr_rsp
+    }
+}
+
+/// Called by `yield_interrupt_handler` on voluntary cooperative yield (`int 33`).
+pub fn on_cooperative_yield(curr_rsp: *mut u8) -> *mut u8 {
+    let _irq = IrqGuard::acquire();
+    let mut sched = SCHEDULER.lock();
+
+    // If starting multitasking from main thread, save main_task
+    if sched.current_task.is_none() && sched.main_task.is_some() {
+        if let Some(mut first_task) = sched.ready_queue.dequeue() {
+            first_task.state = TaskState::Running;
+            let next_rsp = first_task.rsp;
+            sched.current_task = Some(first_task);
+
+            let main_task = sched.main_task.as_mut().unwrap();
+            main_task.rsp = curr_rsp;
+            main_task.state = TaskState::Ready;
+
+            return next_rsp;
+        } else {
+            return curr_rsp;
         }
     }
+
+    if sched.ready_queue.is_empty() {
+        return curr_rsp;
+    }
+
+    sched.current_task_ticks = 0;
+
+    let mut curr_task = sched.current_task.take().unwrap();
+    curr_task.rsp = curr_rsp;
+    curr_task.state = TaskState::Ready;
+    sched.ready_queue.enqueue(curr_task);
+
+    let mut next_task = sched.ready_queue.dequeue().unwrap();
+    next_task.state = TaskState::Running;
+    let next_rsp = next_task.rsp;
+    sched.current_task = Some(next_task);
+
+    next_rsp
 }
 
 /// Terminates the current task and switches to the next ready task (or main thread).
 pub fn exit_current_task() -> ! {
     let next_rsp = {
+        let _irq = IrqGuard::acquire();
         let mut scheduler = SCHEDULER.lock();
         scheduler.prepare_exit()
     };
 
-    // SAFETY: next_rsp points to a verified valid saved context; outgoing stack is discarded.
     unsafe {
         super::context::switch_context_exit(next_rsp);
     }
 }
 
-/// Starts cooperative multitasking from the main thread.
+/// Starts multitasking from the main thread.
 /// Returns once all spawned tasks have completed and terminated.
 pub fn start_multitasking() {
-    let switch_data = {
-        let mut scheduler = SCHEDULER.lock();
-        scheduler.start()
-    };
-
-    if let Some((prev_rsp_ptr, next_rsp)) = switch_data {
-        log::info!("[Scheduler] Commencing cooperative multitasking switch from main thread...");
-        unsafe {
-            super::context::switch_context(prev_rsp_ptr, next_rsp);
-        }
-        log::info!("[Scheduler] All worker tasks completed. Execution returned to main thread.");
-    } else {
-        log::warn!("[Scheduler] No runnable tasks in ready queue to start.");
+    log::info!("[Scheduler] Commencing multitasking switch from main thread...");
+    {
+        let _irq = IrqGuard::acquire();
+        let main_tcb = TaskControlBlock::new_main("main");
+        SCHEDULER.lock().main_task = Some(main_tcb);
     }
+
+    // Yield control from main thread to the first ready task
+    yield_now();
+
+    log::info!("[Scheduler] All worker tasks completed. Execution returned to main thread.");
+}
+
+/// Returns the total number of timer preemption events recorded.
+pub fn preemption_count() -> usize {
+    let _irq = IrqGuard::acquire();
+    SCHEDULER.lock().preemption_count()
+}
+
+/// Returns the currently running task's ID and name, if any.
+pub fn current_task() -> Option<(TaskId, &'static str)> {
+    let _irq = IrqGuard::acquire();
+    SCHEDULER.lock().current_task_info()
 }

@@ -31,6 +31,7 @@ impl ReadyQueue {
     }
 
     /// Returns a mutable reference to the task at the back of the queue (if any).
+    #[allow(dead_code)]
     pub fn back_mut(&mut self) -> Option<&mut Box<TaskControlBlock>> {
         self.tasks.back_mut()
     }

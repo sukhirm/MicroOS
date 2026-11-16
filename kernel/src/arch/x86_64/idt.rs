@@ -31,6 +31,22 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     // 4. Page Fault (#PF, Vector 14)
     idt.page_fault.set_handler_fn(page_fault_handler);
 
+    // 5. Hardware Timer Interrupt (Vector 32 / IRQ0)
+    // SAFETY: IST is 0, so the interrupt saves on the task's own 32 KiB heap stack.
+    unsafe {
+        idt[32].set_handler_addr(x86_64::VirtAddr::new(
+            crate::task::context::timer_interrupt_entry as *const () as usize as u64,
+        ));
+    }
+
+    // 6. Voluntary Cooperative Yield (Vector 33)
+    // SAFETY: Triggered by software `int 33` in Ring 0.
+    unsafe {
+        idt[33].set_handler_addr(x86_64::VirtAddr::new(
+            crate::task::context::yield_interrupt_entry as *const () as usize as u64,
+        ));
+    }
+
     idt
 });
 
