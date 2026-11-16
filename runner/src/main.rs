@@ -465,6 +465,116 @@ fn main() -> anyhow::Result<()> {
                 pattern: "Rendered Phase 4C Window Manager demonstration screen (3 sample windows, Z-stacked).",
                 passed: false,
             },
+            MilestoneCheck {
+                name: "74. Keyboard scancode translation test",
+                pattern: "[PASS] 1. Keyboard scancode character translation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "75. Key press & release tracking test",
+                pattern: "[PASS] 2. Key press and release tracking test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "76. Keyboard modifier state tracking test",
+                pattern: "[PASS] 3. Keyboard modifier state tracking test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "77. Keyboard Shift & Caps Lock logic test",
+                pattern: "[PASS] 4. Keyboard Shift and Caps Lock combination logic test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "78. Keyboard extended scancode decoding test",
+                pattern: "[PASS] 5. Keyboard extended scancode decoding test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "79. Mouse packet boundary synchronization test",
+                pattern: "[PASS] 6. Mouse packet boundary synchronization test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "80. Mouse signed movement & Y-inversion test",
+                pattern: "[PASS] 7. Mouse signed movement decoding and coordinate inversion test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "81. Mouse overflow bit suppression test",
+                pattern: "[PASS] 8. Mouse overflow bit suppression test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "82. Mouse button transition detection test",
+                pattern: "[PASS] 9. Mouse button state transition detection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "83. Mouse cursor boundary clamping test",
+                pattern: "[PASS] 10. Mouse cursor screen boundary clamping test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "84. Event queue FIFO operations test",
+                pattern: "[PASS] 11. Event queue FIFO insertion and retrieval test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "85. Event queue bounded capacity & overrun test",
+                pattern: "[PASS] 12. Event queue bounded capacity and overrun safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "86. Event queue ordering fidelity test",
+                pattern: "[PASS] 13. Event queue sequential ordering fidelity test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "87. Desktop window activation via click test",
+                pattern: "[PASS] 14. Desktop window activation via mouse click test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "88. Desktop window dragging via title bar test",
+                pattern: "[PASS] 15. Desktop window dragging via title bar test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "89. Window control buttons click dispatch test",
+                pattern: "[PASS] 16. Window control buttons (Min, Max, Close) click dispatch test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "90. Desktop application dock hit-testing test",
+                pattern: "[PASS] 17. Desktop application dock hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "91. Desktop keyboard shortcut dispatch test",
+                pattern: "[PASS] 18. Desktop keyboard shortcut dispatch (Alt+Tab, Escape) test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "92. All Phase 4D input self-tests passed",
+                pattern: "[OK] All Phase 4D Input Subsystem Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "93. 8042 PS/2 controller initialized",
+                pattern: "[PS/2] 8042 Controller initialized successfully (IRQ1 & IRQ12 active).",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "94. Input IRQs enabled on 8259 PIC",
+                pattern: "[PIC] Input IRQs enabled: IRQ1 (Keyboard), IRQ2 (Cascade), IRQ12 (Mouse).",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "95. Interactive desktop event loop engaged",
+                pattern: "Desktop Event Loop engaged.",
+                passed: false,
+            },
         ];
 
         let mut captured_lines = Vec::new();
@@ -504,7 +614,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C, Phase 4A, Phase 4B & Phase 4C Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C, Phase 4A, Phase 4B, Phase 4C & Phase 4D Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {

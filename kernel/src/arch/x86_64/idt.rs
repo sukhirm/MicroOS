@@ -39,10 +39,16 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
         ));
     }
 
-    // 6. Voluntary Cooperative Yield (Vector 33)
-    // SAFETY: Triggered by software `int 33` in Ring 0.
+    // 6. Hardware Keyboard Interrupt (Vector 33 / IRQ1)
+    idt[33].set_handler_fn(keyboard_interrupt_handler);
+
+    // 7. Hardware Mouse Interrupt (Vector 44 / IRQ12)
+    idt[44].set_handler_fn(mouse_interrupt_handler);
+
+    // 8. Voluntary Cooperative Yield (Vector 48)
+    // SAFETY: Triggered by software `int 48` in Ring 0.
     unsafe {
-        idt[33].set_handler_addr(x86_64::VirtAddr::new(
+        idt[48].set_handler_addr(x86_64::VirtAddr::new(
             crate::task::context::yield_interrupt_entry as *const () as usize as u64,
         ));
     }
@@ -173,4 +179,40 @@ extern "x86-interrupt" fn page_fault_handler(
     crate::println!("\x1b[1;31m================================================================\x1b[0m");
 
     crate::arch::x86_64::cpu::hlt_loop();
+}
+
+/// Hardware Keyboard Interrupt Handler (Vector 33 / IRQ1).
+extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    let mut status_port: x86_64::instructions::port::Port<u8> =
+        x86_64::instructions::port::Port::new(crate::input::controller::PS2_STATUS_PORT);
+    let status = unsafe { status_port.read() };
+
+    if (status & crate::input::controller::STATUS_OUTPUT_BUFFER_FULL) != 0 {
+        let mut data_port: x86_64::instructions::port::Port<u8> =
+            x86_64::instructions::port::Port::new(crate::input::controller::PS2_DATA_PORT);
+        let scancode = unsafe { data_port.read() };
+        crate::input::keyboard::handle_scancode(scancode);
+    }
+
+    unsafe {
+        crate::arch::x86_64::pic::send_eoi(1);
+    }
+}
+
+/// Hardware Mouse Interrupt Handler (Vector 44 / IRQ12).
+extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    let mut status_port: x86_64::instructions::port::Port<u8> =
+        x86_64::instructions::port::Port::new(crate::input::controller::PS2_STATUS_PORT);
+    let status = unsafe { status_port.read() };
+
+    if (status & crate::input::controller::STATUS_OUTPUT_BUFFER_FULL) != 0 {
+        let mut data_port: x86_64::instructions::port::Port<u8> =
+            x86_64::instructions::port::Port::new(crate::input::controller::PS2_DATA_PORT);
+        let byte = unsafe { data_port.read() };
+        crate::input::mouse::handle_byte(byte);
+    }
+
+    unsafe {
+        crate::arch::x86_64::pic::send_eoi(12);
+    }
 }

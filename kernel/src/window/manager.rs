@@ -289,4 +289,16 @@ impl WindowManager {
             }
         }
     }
+
+    /// Cycles focus through visible windows in Z-order (e.g. on Alt+Tab).
+    pub fn cycle_active_window(&mut self) {
+        if self.z_order.len() <= 1 {
+            return;
+        }
+
+        // Move the back-most window to the front
+        let back_id = self.z_order.remove(0);
+        self.z_order.push(back_id);
+        self.set_active(back_id);
+    }
 }

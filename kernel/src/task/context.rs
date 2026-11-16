@@ -190,7 +190,7 @@ pub extern "C" fn timer_interrupt_handler(curr_rsp: *mut u8) -> *mut u8 {
 /// Called by `yield_interrupt_entry` when a voluntary `yield_now()` is invoked.
 #[no_mangle]
 pub extern "C" fn yield_interrupt_handler(curr_rsp: *mut u8) -> *mut u8 {
-    // Cooperative yield does NOT send PIC EOI because it was triggered by software int 33
+    // Cooperative yield does NOT send PIC EOI because it was triggered by software int 48
     super::scheduler::on_cooperative_yield(curr_rsp)
 }
 

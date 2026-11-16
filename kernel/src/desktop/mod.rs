@@ -13,7 +13,7 @@ pub mod wallpaper;
 #[allow(unused_imports)]
 pub use cursor::Cursor;
 #[allow(unused_imports)]
-pub use dock::{get_dock_bounds, render_dock, DOCK_ITEMS};
+pub use dock::{get_dock_bounds, hit_test_dock, render_dock, DOCK_ITEMS};
 #[allow(unused_imports)]
 pub use shell::{render_desktop, render_desktop_with_wm, DesktopShell};
 #[allow(unused_imports)]

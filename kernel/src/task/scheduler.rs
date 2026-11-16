@@ -107,7 +107,7 @@ pub fn spawn(name: &'static str, entry: extern "C" fn()) -> TaskId {
 #[inline(always)]
 pub fn yield_now() {
     unsafe {
-        core::arch::asm!("int 33");
+        core::arch::asm!("int 48");
     }
 }
 
@@ -143,7 +143,7 @@ pub fn on_timer_tick(curr_rsp: *mut u8, _ticks: u64) -> *mut u8 {
     }
 }
 
-/// Called by `yield_interrupt_handler` on voluntary cooperative yield (`int 33`).
+/// Called by `yield_interrupt_handler` on voluntary cooperative yield (`int 48`).
 pub fn on_cooperative_yield(curr_rsp: *mut u8) -> *mut u8 {
     let _irq = IrqGuard::acquire();
     let mut sched = SCHEDULER.lock();

@@ -97,3 +97,30 @@ pub unsafe fn send_eoi(irq: u8) {
     let mut pic1_cmd: Port<u8> = Port::new(PIC1_COMMAND);
     pic1_cmd.write(PIC_EOI);
 }
+
+/// Unmasks a specific IRQ line on Master or Slave PIC.
+pub unsafe fn clear_mask(irq: u8) {
+    let port = if irq < 8 { PIC1_DATA } else { PIC2_DATA };
+    let irq_line = if irq < 8 { irq } else { irq - 8 };
+    let mut data_port: Port<u8> = Port::new(port);
+    let value = data_port.read() & !(1 << irq_line);
+    data_port.write(value);
+}
+
+/// Masks a specific IRQ line on Master or Slave PIC.
+#[allow(dead_code)]
+pub unsafe fn set_mask(irq: u8) {
+    let port = if irq < 8 { PIC1_DATA } else { PIC2_DATA };
+    let irq_line = if irq < 8 { irq } else { irq - 8 };
+    let mut data_port: Port<u8> = Port::new(port);
+    let value = data_port.read() | (1 << irq_line);
+    data_port.write(value);
+}
+
+/// Enables hardware interrupts for keyboard (IRQ1) and mouse (IRQ12 via cascade IRQ2).
+pub unsafe fn enable_input_irqs() {
+    clear_mask(1);  // IRQ1: Keyboard
+    clear_mask(2);  // IRQ2: Cascade to Slave PIC
+    clear_mask(12); // IRQ12: Mouse
+    log::info!("[PIC] Input IRQs enabled: IRQ1 (Keyboard), IRQ2 (Cascade), IRQ12 (Mouse).");
+}

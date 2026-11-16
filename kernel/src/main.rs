@@ -8,6 +8,7 @@ mod arch;
 mod desktop;
 mod framebuffer;
 mod graphics;
+mod input;
 mod logger;
 mod memory;
 mod panic;
@@ -112,7 +113,11 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     log::info!("Initializing Phase 4C Window Manager Subsystem...");
     window::run_self_tests();
 
-    // 11. Synchronization Subsystem (Phase 3C)
+    // 11. Input Subsystem Self-Tests (Phase 4D)
+    log::info!("Initializing Phase 4D Input Subsystem...");
+    input::run_self_tests();
+
+    // 12. Synchronization Subsystem (Phase 3C)
     log::info!("Initializing Phase 3C Synchronization Subsystem...");
     sync::run_self_tests();
 
@@ -197,19 +202,49 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
         // Phase 4C: Render the Desktop with Window Manager and sample windows
         log::info!("Rendering Phase 4C Window Manager desktop showcase...");
-        let wm = window::create_demo_desktop(info.width as u32, info.height as u32);
+        let mut wm = window::create_demo_desktop(info.width as u32, info.height as u32);
         desktop::render_desktop_with_wm(&mut backbuffer, &wm);
         graphics::present(&backbuffer, fb);
         log::info!("Rendered Phase 4C Window Manager demonstration screen (3 sample windows, Z-stacked).");
+
+        // Phase 4D: Initialize Input Subsystem and Event Dispatcher
+        log::info!("Initializing Phase 4D Hardware Input Subsystem...");
+        input::init(info.width as u32, info.height as u32);
+        log::info!("Rendered Phase 4D Interactive Desktop with Input Subsystem.");
+
+        println!("\x1b[1;32m================================================================");
+        println!(" [SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!    ");
+        println!(" Interactive Desktop Event Loop active. Ready for input.        ");
+        println!("================================================================\x1b[0m");
+
+        // SAFETY: Re-enable hardware interrupts now that 8042 controller and PIC are initialized
+        x86_64::instructions::interrupts::enable();
+
+        log::info!("Desktop Event Loop engaged.");
+        let mut dispatcher = input::EventDispatcher::new(info.width as u32, info.height as u32);
+        let mut shell = desktop::DesktopShell::new(info.width as u32, info.height as u32);
+
+        loop {
+            let mut needs_redraw = false;
+            while let Some(event) = input::pop_event() {
+                needs_redraw |= dispatcher.dispatch(event, &mut wm, &mut shell);
+            }
+
+            if needs_redraw {
+                shell.render_with_wm(&mut backbuffer, Some(&wm));
+                graphics::present(&backbuffer, fb);
+            }
+
+            x86_64::instructions::hlt();
+        }
     } else {
         log::warn!("No linear framebuffer detected; running in headless/serial mode.");
+        println!("\x1b[1;32m================================================================");
+        println!(" [SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!    ");
+        println!(" CPU entering low-power halt state. Ready for Phase 2.          ");
+        println!("================================================================\x1b[0m");
+
+        log::info!("Idle halt loop engaged.");
+        arch::x86_64::cpu::hlt_loop();
     }
-
-    println!("\x1b[1;32m================================================================");
-    println!(" [SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!    ");
-    println!(" CPU entering low-power halt state. Ready for Phase 2.          ");
-    println!("================================================================\x1b[0m");
-
-    log::info!("Idle halt loop engaged.");
-    arch::x86_64::cpu::hlt_loop();
 }

@@ -6,7 +6,7 @@
 
 use crate::graphics::color::Color;
 use crate::graphics::font::{draw_string, measure_string};
-use crate::graphics::geometry::Rect;
+use crate::graphics::geometry::{Point, Rect};
 use crate::graphics::icon::*;
 use crate::graphics::surface::Surface;
 
@@ -111,4 +111,25 @@ pub fn render_dock(surface: &mut Surface) {
         let label_y = tile_rect.bottom() + 4;
         draw_string(surface, label_x, label_y, item.name, Color::TEXT_MUTED, None, 1);
     }
+}
+
+/// Tests whether a screen coordinate intersects an application tile in the floating dock.
+/// Returns `Some(index)` if a dock tile was clicked, or `None` otherwise.
+pub fn hit_test_dock(screen_w: u32, screen_h: u32, pt: Point) -> Option<usize> {
+    let dock_rect = get_dock_bounds(screen_w, screen_h);
+    if !dock_rect.contains(pt) {
+        return None;
+    }
+
+    let item_slot_w = 64i32;
+    let start_x = dock_rect.x + 16;
+    for (i, _) in DOCK_ITEMS.iter().enumerate() {
+        let cur_x = start_x + (i as i32 * item_slot_w);
+        let slot_rect = Rect::new(cur_x, dock_rect.y, item_slot_w as u32, dock_rect.height);
+        if slot_rect.contains(pt) {
+            return Some(i);
+        }
+    }
+
+    None
 }
