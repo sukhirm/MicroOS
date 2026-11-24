@@ -59,7 +59,7 @@ impl EventDispatcher {
     ) -> bool {
         match event {
             InputEvent::Mouse(mouse) => self.handle_mouse(mouse, wm, shell),
-            InputEvent::Key(key) => self.handle_keyboard(key, wm),
+            InputEvent::Key(key) => self.handle_keyboard(key, wm, shell),
         }
     }
 
@@ -93,6 +93,35 @@ impl EventDispatcher {
                     // Check dock hit first
                     if let Some(dock_idx) = hit_test_dock(self.screen_width, self.screen_height, cursor_pt) {
                         log::info!("[Desktop] Dock item clicked at index: {}", dock_idx);
+                        if dock_idx == 0 {
+                            // "Files" application icon clicked on Dock
+                            crate::apps::files::open_or_focus_files_window(wm);
+                            return true;
+                        } else if dock_idx == 1 {
+                            // "Settings" application icon clicked on Dock
+                            crate::apps::settings::open_or_focus_settings_window(wm);
+                            return true;
+                        } else if dock_idx == 2 {
+                            // "SysMon" application icon clicked on Dock
+                            crate::apps::sysmon::open_or_focus_sysmon_window(wm);
+                            return true;
+                        } else if dock_idx == 3 {
+                            // "Network" application icon clicked on Dock
+                            crate::apps::network::open_or_focus_network_window(wm);
+                            return true;
+                        } else if dock_idx == 4 {
+                            // "Terminal" application icon clicked on Dock
+                            crate::apps::terminal::open_or_focus_terminal_window(wm);
+                            return true;
+                        } else if dock_idx == 5 {
+                            // "Store" application icon clicked on Dock
+                            crate::apps::store::open_or_focus_store_window(wm);
+                            return true;
+                        } else if dock_idx == 6 {
+                            // "Deadlock" application icon clicked on Dock
+                            crate::apps::deadlock::open_or_focus_deadlock_window(wm);
+                            return true;
+                        }
                         return redraw_needed;
                     }
 
@@ -130,6 +159,44 @@ impl EventDispatcher {
                         } else {
                             // Clicked inside window body: focus and bring to front
                             wm.bring_to_front(win_id);
+                            if let Some(w) = wm.get_window(win_id) {
+                                if w.title() == "Files" {
+                                    let content_rect = w.content_rect();
+                                    if content_rect.contains(cursor_pt) {
+                                        crate::apps::files::handle_click(cursor_pt, content_rect);
+                                    }
+                                } else if w.title() == "Settings" {
+                                    let content_rect = w.content_rect();
+                                    if content_rect.contains(cursor_pt) {
+                                        crate::apps::settings::handle_click(cursor_pt, content_rect);
+                                    }
+                                } else if w.title() == "System Monitor" || w.title() == "SysMon" {
+                                    let content_rect = w.content_rect();
+                                    if content_rect.contains(cursor_pt) {
+                                        crate::apps::sysmon::handle_click(cursor_pt, content_rect);
+                                    }
+                                } else if w.title() == "Network" || w.title() == "Network Manager" {
+                                    let content_rect = w.content_rect();
+                                    if content_rect.contains(cursor_pt) {
+                                        crate::apps::network::handle_click(cursor_pt, content_rect);
+                                    }
+                                } else if w.title() == "Terminal" {
+                                    let content_rect = w.content_rect();
+                                    if content_rect.contains(cursor_pt) {
+                                        crate::apps::terminal::handle_click(cursor_pt, content_rect);
+                                    }
+                                } else if w.title() == "Software Store" || w.title() == "Store" {
+                                    let content_rect = w.content_rect();
+                                    if content_rect.contains(cursor_pt) {
+                                        crate::apps::store::handle_click(cursor_pt, content_rect);
+                                    }
+                                } else if w.title() == "Deadlock Research Lab — R14" || w.title() == "Deadlock Lab" {
+                                    let content_rect = w.content_rect();
+                                    if content_rect.contains(cursor_pt) {
+                                        crate::apps::deadlock::handle_click(cursor_pt, content_rect);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -143,11 +210,12 @@ impl EventDispatcher {
         redraw_needed
     }
 
-    /// Handles keyboard events: desktop navigation shortcuts and escape cancels.
+    /// Handles keyboard events: desktop navigation shortcuts and pointer emulation.
     fn handle_keyboard(
         &mut self,
         key: super::event::KeyEvent,
         wm: &mut WindowManager,
+        shell: &mut DesktopShell,
     ) -> bool {
         if key.action != KeyAction::Pressed {
             return false;
@@ -165,11 +233,99 @@ impl EventDispatcher {
             return true;
         }
 
-        // 3. Super+M minimizes the currently active window
-        if key.modifiers.super_key && key.code == KeyCode::M {
-            if let Some(active_id) = wm.active_window_id() {
-                wm.minimize_window(active_id);
-                return true;
+        // 3. Super or Alt + Arrow Keys / Enter: Pointer & Touchpad Navigation
+        let is_pointer_nav = key.modifiers.super_key || (key.modifiers.alt && key.code != KeyCode::Tab);
+        if is_pointer_nav {
+            match key.code {
+                KeyCode::Up => {
+                    let mut pos = shell.cursor().position();
+                    pos.y = (pos.y - 24).max(0);
+                    shell.cursor_mut().set_position(pos);
+                    return true;
+                }
+                KeyCode::Down => {
+                    let mut pos = shell.cursor().position();
+                    pos.y = (pos.y + 24).min(self.screen_height as i32 - 1);
+                    shell.cursor_mut().set_position(pos);
+                    return true;
+                }
+                KeyCode::Left => {
+                    let mut pos = shell.cursor().position();
+                    pos.x = (pos.x - 24).max(0);
+                    shell.cursor_mut().set_position(pos);
+                    return true;
+                }
+                KeyCode::Right => {
+                    let mut pos = shell.cursor().position();
+                    pos.x = (pos.x + 24).min(self.screen_width as i32 - 1);
+                    shell.cursor_mut().set_position(pos);
+                    return true;
+                }
+                KeyCode::Enter | KeyCode::Space => {
+                    // Synthesize Left Click at current mouse cursor position
+                    let pos = shell.cursor().position();
+                    let press_ev = super::event::MouseEvent {
+                        x: pos.x,
+                        y: pos.y,
+                        delta_x: 0,
+                        delta_y: 0,
+                        buttons: super::event::MouseButtons { left: true, right: false, middle: false },
+                        button_change: Some((super::event::MouseButton::Left, super::event::ButtonAction::Pressed)),
+                    };
+                    let red1 = self.handle_mouse(press_ev, wm, shell);
+                    let release_ev = super::event::MouseEvent {
+                        x: pos.x,
+                        y: pos.y,
+                        delta_x: 0,
+                        delta_y: 0,
+                        buttons: super::event::MouseButtons { left: false, right: false, middle: false },
+                        button_change: Some((super::event::MouseButton::Left, super::event::ButtonAction::Released)),
+                    };
+                    let red2 = self.handle_mouse(release_ev, wm, shell);
+                    return red1 | red2;
+                }
+                KeyCode::M => {
+                    if let Some(active_id) = wm.active_window_id() {
+                        wm.minimize_window(active_id);
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // 4. Forward keyboard navigation to active window
+        if let Some(active_id) = wm.active_window_id() {
+            if let Some(w) = wm.get_window(active_id) {
+                if w.title() == "Files" {
+                    if crate::apps::files::handle_key(key) {
+                        return true;
+                    }
+                } else if w.title() == "Settings" {
+                    if crate::apps::settings::handle_key(key) {
+                        return true;
+                    }
+                } else if w.title() == "System Monitor" || w.title() == "SysMon" {
+                    if crate::apps::sysmon::handle_key(key) {
+                        return true;
+                    }
+                } else if w.title() == "Network" || w.title() == "Network Manager" {
+                    if crate::apps::network::handle_key(key) {
+                        return true;
+                    }
+                } else if w.title() == "Terminal" {
+                    if crate::apps::terminal::handle_key(key) {
+                        return true;
+                    }
+                } else if w.title() == "Software Store" || w.title() == "Store" {
+                    if crate::apps::store::handle_key(key) {
+                        return true;
+                    }
+                } else if w.title() == "Deadlock Research Lab — R14" || w.title() == "Deadlock Lab" {
+                    if crate::apps::deadlock::handle_key(key) {
+                        return true;
+                    }
+                }
             }
         }
 

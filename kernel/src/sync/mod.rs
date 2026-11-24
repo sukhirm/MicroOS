@@ -3,10 +3,18 @@
 //! Provides atomic IRQ guards (`IrqGuard`), mutual exclusion spinlocks (`SpinMutex`),
 //! and an adaptive cooperative-spinning counting semaphore (`Semaphore`).
 
+pub mod benchmark;
 pub mod irq;
 pub mod mutex;
 pub mod semaphore;
 
+#[allow(unused_imports)]
+pub use benchmark::{
+    benchmark_cooperative_yield_latency, benchmark_semaphore_latency,
+    benchmark_spin_mutex_contention, benchmark_spin_mutex_latency,
+    run_synchronization_benchmarks, CooperativeYieldReport, SemaphoreLatencyReport,
+    SpinMutexContentionReport, SpinMutexLatencyReport, SynchronizationBenchmarkSuiteReport,
+};
 pub use irq::IrqGuard;
 #[allow(unused_imports)]
 pub use mutex::{SpinMutex, SpinMutexGuard};
@@ -78,6 +86,48 @@ pub fn run_self_tests() {
         sem.release();
         assert_eq!(sem.count(), 2);
         log::info!("  [PASS] Semaphore bounded capacity and atomic acquire/release test");
+    }
+
+    // 4. Synchronization Performance Microbenchmarks (Phase 1B)
+    {
+        let report = benchmark::run_synchronization_benchmarks();
+        assert!(report.mutex_latency.success, "SpinMutex benchmark must succeed");
+        assert_eq!(
+            report.mutex_contention.failed_acquisitions, report.mutex_contention.attempts,
+            "All contention attempts against a held lock must fail"
+        );
+        assert!(report.semaphore_latency.permits_restored, "Semaphore permits must be restored");
+        assert_eq!(
+            report.semaphore_latency.unavailable_failures, report.semaphore_latency.unavailable_attempts,
+            "All try_acquire attempts on empty semaphore must fail"
+        );
+
+        log::info!(
+            "  [PASS] Phase 1B SpinMutex uncontended latency: lock={} cyc, unlock={} cyc, try_lock={} cyc",
+            report.mutex_latency.lock_acquire_cycles_median,
+            report.mutex_latency.lock_release_cycles_median,
+            report.mutex_latency.try_lock_acquire_cycles_median
+        );
+        log::info!(
+            "  [PASS] Phase 1B SpinMutex contention telemetry: {}/{} failed attempts detected (median {} cyc)",
+            report.mutex_contention.failed_acquisitions,
+            report.mutex_contention.attempts,
+            report.mutex_contention.contention_detection_cycles_median
+        );
+        log::info!(
+            "  [PASS] Phase 1B Semaphore latency: acquire={} cyc, release={} cyc, unavail={} cyc (batch 10: acq={} cyc, rel={} cyc)",
+            report.semaphore_latency.acquire_cycles_median,
+            report.semaphore_latency.release_cycles_median,
+            report.semaphore_latency.unavailable_detection_cycles_median,
+            report.semaphore_latency.batch_acquire_cycles_median,
+            report.semaphore_latency.batch_release_cycles_median
+        );
+        if report.cooperative_yield.executed {
+            log::info!(
+                "  [PASS] Phase 1B Cooperative yield round-trip: {} cyc",
+                report.cooperative_yield.yield_cycles_median
+            );
+        }
     }
 
     log::info!("================================================================");

@@ -14,6 +14,15 @@ use super::tcb::{TaskControlBlock, TaskId, TaskState};
 /// Default time slice in timer ticks: 3 ticks (30 ms at 100 Hz).
 pub const TIME_SLICE_TICKS: usize = 3;
 
+/// Diagnostic snapshot of a task's state.
+#[derive(Debug, Clone)]
+pub struct TaskSnapshot {
+    pub id: TaskId,
+    pub name: &'static str,
+    pub state: TaskState,
+    pub stack_size: usize,
+}
+
 /// Global cooperative and preemptive scheduler instance.
 pub static SCHEDULER: SpinMutex<Scheduler> = SpinMutex::new(Scheduler::new());
 
@@ -25,6 +34,7 @@ pub struct Scheduler {
     terminated_tasks: Vec<Box<TaskControlBlock>>,
     current_task_ticks: usize,
     preemption_count: usize,
+    context_switch_count: usize,
 }
 
 impl Scheduler {
@@ -37,6 +47,7 @@ impl Scheduler {
             terminated_tasks: Vec::new(),
             current_task_ticks: 0,
             preemption_count: 0,
+            context_switch_count: 0,
         }
     }
 
@@ -66,6 +77,7 @@ impl Scheduler {
             current.name
         );
         self.terminated_tasks.push(current);
+        self.context_switch_count += 1;
 
         if let Some(mut next_task) = self.ready_queue.dequeue() {
             next_task.state = TaskState::Running;
@@ -94,6 +106,69 @@ impl Scheduler {
     /// Returns the currently running task's ID and name, if any.
     pub fn current_task_info(&self) -> Option<(TaskId, &'static str)> {
         self.current_task.as_ref().map(|t| (t.id, t.name))
+    }
+
+    /// Returns the total number of context switches recorded.
+    pub fn context_switch_count(&self) -> usize {
+        self.context_switch_count
+    }
+
+    /// Returns the number of tasks in the ready queue.
+    pub fn ready_count(&self) -> usize {
+        self.ready_queue.len()
+    }
+
+    /// Returns the total number of tasks (current, ready, main, and terminated).
+    pub fn total_task_count(&self) -> usize {
+        (if self.current_task.is_some() { 1 } else { 0 })
+            + self.ready_queue.len()
+            + (if self.main_task.is_some() { 1 } else { 0 })
+            + self.terminated_tasks.len()
+    }
+
+    /// Collects a diagnostic snapshot of all tasks in the system.
+    pub fn task_snapshots(&self) -> Vec<TaskSnapshot> {
+        let mut list = Vec::new();
+
+        if let Some(ref t) = self.current_task {
+            list.push(TaskSnapshot {
+                id: t.id,
+                name: t.name,
+                state: TaskState::Running,
+                stack_size: t.stack.len(),
+            });
+        }
+
+        for t in self.ready_queue.iter() {
+            list.push(TaskSnapshot {
+                id: t.id,
+                name: t.name,
+                state: TaskState::Ready,
+                stack_size: t.stack.len(),
+            });
+        }
+
+        if let Some(ref t) = self.main_task {
+            if self.current_task.as_ref().map(|c| c.id != t.id).unwrap_or(true) {
+                list.push(TaskSnapshot {
+                    id: t.id,
+                    name: t.name,
+                    state: t.state,
+                    stack_size: t.stack.len(),
+                });
+            }
+        }
+
+        for t in &self.terminated_tasks {
+            list.push(TaskSnapshot {
+                id: t.id,
+                name: t.name,
+                state: TaskState::Terminated,
+                stack_size: t.stack.len(),
+            });
+        }
+
+        list
     }
 }
 
@@ -125,6 +200,7 @@ pub fn on_timer_tick(curr_rsp: *mut u8, _ticks: u64) -> *mut u8 {
     // Check if time slice has expired and there is another task ready to run
     if sched.current_task_ticks >= TIME_SLICE_TICKS && !sched.ready_queue.is_empty() {
         sched.preemption_count += 1;
+        sched.context_switch_count += 1;
         sched.current_task_ticks = 0;
 
         let mut curr_task = sched.current_task.take().unwrap();
@@ -169,6 +245,7 @@ pub fn on_cooperative_yield(curr_rsp: *mut u8) -> *mut u8 {
         return curr_rsp;
     }
 
+    sched.context_switch_count += 1;
     sched.current_task_ticks = 0;
 
     let mut curr_task = sched.current_task.take().unwrap();
@@ -210,6 +287,12 @@ pub fn start_multitasking() {
     // Yield control from main thread to the first ready task
     yield_now();
 
+    // Clean up scheduler state: main thread is no longer managed as a worker task
+    {
+        let _irq = IrqGuard::acquire();
+        SCHEDULER.lock().current_task = None;
+    }
+
     log::info!("[Scheduler] All worker tasks completed. Execution returned to main thread.");
 }
 
@@ -223,4 +306,28 @@ pub fn preemption_count() -> usize {
 pub fn current_task() -> Option<(TaskId, &'static str)> {
     let _irq = IrqGuard::acquire();
     SCHEDULER.lock().current_task_info()
+}
+
+/// Returns the total number of context switches (both preemptive and cooperative).
+pub fn context_switch_count() -> usize {
+    let _irq = IrqGuard::acquire();
+    SCHEDULER.lock().context_switch_count()
+}
+
+/// Returns a diagnostic snapshot of all tasks in the system.
+pub fn task_snapshots() -> Vec<TaskSnapshot> {
+    let _irq = IrqGuard::acquire();
+    SCHEDULER.lock().task_snapshots()
+}
+
+/// Returns the number of tasks in the ready queue.
+pub fn ready_task_count() -> usize {
+    let _irq = IrqGuard::acquire();
+    SCHEDULER.lock().ready_count()
+}
+
+/// Returns the total number of tasks in the system without allocating memory.
+pub fn total_task_count() -> usize {
+    let _irq = IrqGuard::acquire();
+    SCHEDULER.lock().total_task_count()
 }

@@ -1,0 +1,14 @@
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\serde/612ed5c2250bc343\out\serde-612ed5c2250bc343.d: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\serde/4cc160dc4c8bed30\out/private.rs
+
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\serde/612ed5c2250bc343\out\libserde-612ed5c2250bc343.rlib: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\serde/4cc160dc4c8bed30\out/private.rs
+
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\serde/612ed5c2250bc343\out\libserde-612ed5c2250bc343.rmeta: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\serde/4cc160dc4c8bed30\out/private.rs
+
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\serde/4cc160dc4c8bed30\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\sukhi\\OneDrive\\Documents\\MicroOS_New\\target\\debug\\build\\serde/4cc160dc4c8bed30\\out

@@ -20,6 +20,8 @@ pub use event::{
     MouseButtons, MouseEvent,
 };
 #[allow(unused_imports)]
+pub use controller::poll_hardware;
+#[allow(unused_imports)]
 pub use queue::{clear_events, event_overruns, pending_events, pop_event, push_event};
 pub use tests::run_self_tests;
 

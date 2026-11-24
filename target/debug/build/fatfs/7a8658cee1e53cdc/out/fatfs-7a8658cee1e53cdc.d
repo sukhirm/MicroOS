@@ -1,0 +1,12 @@
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\fatfs/7a8658cee1e53cdc\out\fatfs-7a8658cee1e53cdc.d: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\boot_sector.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\dir.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\dir_entry.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\file.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\fs.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\table.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\time.rs
+
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\fatfs/7a8658cee1e53cdc\out\libfatfs-7a8658cee1e53cdc.rmeta: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\boot_sector.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\dir.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\dir_entry.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\file.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\fs.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\table.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\time.rs
+
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\lib.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\boot_sector.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\dir.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\dir_entry.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\file.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\fs.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\table.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\fatfs-0.3.6\src\time.rs:

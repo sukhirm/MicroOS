@@ -4,13 +4,20 @@
 
 extern crate alloc;
 
+mod acpi;
+mod apps;
 mod arch;
+mod crypto;
+mod deadlock;
 mod desktop;
 mod framebuffer;
+mod fs;
 mod graphics;
 mod input;
 mod logger;
 mod memory;
+mod net;
+mod package;
 mod panic;
 mod serial;
 mod sync;
@@ -34,7 +41,16 @@ entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
 
 /// Bare-metal kernel entry point called by the UEFI bootloader.
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
-    // 1. Initialize 16550 UART serial driver for early diagnostic logging
+    let boot_start_tsc = unsafe { core::arch::x86_64::_rdtsc() };
+
+    // 0. Initialize GOP framebuffer immediately upon kernel entry!
+    // Access boot_info.framebuffer right away and render the unmistakable Cosmic Slate
+    // diagnostic screen with initial milestones BEFORE any serial or log calls.
+    if let Some(fb) = boot_info.framebuffer.as_mut() {
+        framebuffer::init_early(fb);
+    }
+
+    // 1. Initialize 16550 UART serial driver for early diagnostic logging (non-blocking)
     serial::init();
 
     // 2. Initialize global log framework
@@ -71,6 +87,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     // 4. Initialize Kernel-owned GDT & TSS with dedicated Double Fault IST
     log::info!("Initializing kernel-owned GDT and TSS...");
     arch::x86_64::gdt::init();
+    framebuffer::record_milestone(framebuffer::StartupMilestone::GdtTss);
     let kernel_desc_diag = arch::x86_64::cpu::read_descriptor_diagnostics();
     log::info!("Kernel GDTR: base={:#018x}, limit={:#06x}", kernel_desc_diag.gdtr_base, kernel_desc_diag.gdtr_limit);
     log::info!("Kernel Segment Selectors: CS={:?}, SS={:?}, DS={:?}, ES={:?}",
@@ -89,6 +106,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     log::info!("Testing controlled exception dispatch via int3 (software breakpoint)...");
     x86_64::instructions::interrupts::int3();
     log::info!("Exception verification complete: returned successfully from #BP handler.");
+    framebuffer::record_milestone(framebuffer::StartupMilestone::IdtExceptions);
 
     // 7. Memory Management & Heap Allocator (Phase 3A)
     log::info!("Initializing Phase 3A Memory Management Subsystem...");
@@ -100,6 +118,31 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     let memory_regions = unsafe { &*core::ptr::addr_of!(boot_info.memory_regions) };
     memory::init(memory_regions, phys_mem_offset);
     memory::run_heap_self_tests();
+    framebuffer::record_milestone(framebuffer::StartupMilestone::MemoryHeap);
+    let mem_done_tsc = unsafe { core::arch::x86_64::_rdtsc() };
+    log::info!(
+        "[Boot Timing] 1. Memory Management & Heap Allocator initialized: {} cycles (+{} cycles from startup)",
+        mem_done_tsc,
+        mem_done_tsc.saturating_sub(boot_start_tsc)
+    );
+
+    // 7b. Virtual File System Subsystem (Phase 4E)
+    log::info!("Initializing Phase 4E Virtual File System (VFS)...");
+    fs::init();
+    fs::run_self_tests();
+
+    // 7c. Package Management Subsystem (Phase 4E.7)
+    log::info!("Initializing Phase 4E.7 APT Package Management Subsystem...");
+    package::init();
+    package::run_self_tests();
+
+    // 7d. Desktop Applications Subsystem (Phase 4E)
+    log::info!("Initializing Phase 4E Desktop Applications Subsystem...");
+    apps::run_self_tests();
+
+    // 7e. Deadlock Research Subsystem (Topic R14)
+    log::info!("Initializing Topic R14 Deadlock Research Subsystem...");
+    deadlock::run_self_tests();
 
     // 8. Graphics Subsystem Self-Tests (Phase 4A)
     log::info!("Initializing Phase 4A Graphics Subsystem...");
@@ -121,9 +164,14 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     log::info!("Initializing Phase 3C Synchronization Subsystem...");
     sync::run_self_tests();
 
+    // 13. Network Protocol Stack & Framing Self-Tests
+    log::info!("Initializing Network Protocol Stack Tests...");
+    net::tests::run_self_tests();
+
     // 9. Task Management Subsystem (Phase 3B/3C)
     log::info!("Initializing Task Subsystem...");
     task::run_self_tests();
+    framebuffer::record_milestone(framebuffer::StartupMilestone::Subsystems);
 
     // 10. Hardware Timer & Interrupt Controller (Phase 3C)
     log::info!("Initializing 8259 PIC and 8254 PIT (100 Hz timer)...");
@@ -131,6 +179,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         arch::x86_64::pic::init();
         arch::x86_64::timer::init();
     }
+    framebuffer::record_milestone(framebuffer::StartupMilestone::PicPitTimer);
 
     // 11. Run Phase 3C Preemptive Multitasking Demo
     log::info!("Starting Phase 3C Preemptive Multitasking Demonstration...");
@@ -139,6 +188,13 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     task::run_preemption_demo();
     // Disable interrupts after multitasking demonstration completes
     x86_64::instructions::interrupts::disable();
+    framebuffer::record_milestone(framebuffer::StartupMilestone::SchedulerTasks);
+    let sched_done_tsc = unsafe { core::arch::x86_64::_rdtsc() };
+    log::info!(
+        "[Boot Timing] 2. Task Scheduler & Multitasking initialized: {} cycles (+{} cycles)",
+        sched_done_tsc,
+        sched_done_tsc.saturating_sub(mem_done_tsc)
+    );
 
     // 12. Memory Diagnostics
     let mut usable_bytes: u64 = 0;
@@ -167,7 +223,27 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     if let Some(&rsdp) = boot_info.rsdp_addr.as_ref() {
         log::info!("ACPI RSDP found at physical address: {:#018x}", rsdp);
+        if let Some(&phys_offset) = boot_info.physical_memory_offset.as_ref() {
+            let acpi_report = acpi::inspect(rsdp, phys_offset, &boot_info.memory_regions);
+            acpi_report.log_diagnostics();
+            *acpi::GLOBAL_ACPI_REPORT.lock() = Some(acpi_report.clone());
+
+            // Initialize PCIe ECAM (MMCONFIG) if ACPI MCFG table is discovered
+            if let Some(mcfg) = acpi_report.mcfg_allocations.first() {
+                arch::x86_64::pci::set_ecam_config(arch::x86_64::pci::PciEcamConfig::new(
+                    mcfg.base_address,
+                    mcfg.segment_group,
+                    mcfg.start_bus,
+                    mcfg.end_bus,
+                ));
+            }
+        }
     }
+
+    // Initialize physical networking subsystem (probes Realtek RTL8168 Gigabit Ethernet & RTL8852BE Wi-Fi)
+    log::info!("Probing network controllers (Realtek RTL8168 GbE & RTL8852BE Wi-Fi)...");
+    net::init();
+    crate::apps::network::init();
 
     // 5. Framebuffer initialization & Cosmic Slate / Obsidian Azure canvas
     if let Some(fb) = boot_info.framebuffer.as_mut() {
@@ -181,18 +257,32 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             info.byte_len
         );
 
-        let mut writer = framebuffer::FramebufferWriter::new(fb);
-        writer.render_boot_screen();
+        framebuffer::record_milestone(framebuffer::StartupMilestone::DesktopReady);
         log::info!("Rendered Cosmic Slate / Obsidian Azure diagnostic splash canvas.");
 
         // Phase 4A: Initialize double buffer, render graphics demo screen, and present
         log::info!("Initializing Phase 4A double-buffered graphics showcase...");
-        let mut backbuffer = unsafe {
-            graphics::create_backbuffer_surface(info.width, info.height, info.stride, info.pixel_format)
+        let mut backbuffer = match unsafe {
+            graphics::try_create_backbuffer_surface(info.width, info.height, info.stride, info.pixel_format)
+        } {
+            Ok(surface) => surface,
+            Err(err) => {
+                log::error!(
+                    "Failed to create double-buffer surface: {:?}. Halting safely to prevent corruption.",
+                    err
+                );
+                panic!("Double-buffer allocation failure: {:?}", err);
+            }
         };
         graphics::render_demo(&mut backbuffer);
         graphics::present(&backbuffer, fb);
+        let gfx_done_tsc = unsafe { core::arch::x86_64::_rdtsc() };
         log::info!("Rendered Phase 4A Graphics Engine demonstration screen (double-buffered).");
+        log::info!(
+            "[Boot Timing] 3. Graphics Engine & 16 MiB Backbuffer initialized: {} cycles (+{} cycles)",
+            gfx_done_tsc,
+            gfx_done_tsc.saturating_sub(sched_done_tsc)
+        );
 
         // Phase 4B: Render the complete Desktop Environment Shell
         log::info!("Rendering Phase 4B Desktop Environment Shell...");
@@ -212,30 +302,70 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         input::init(info.width as u32, info.height as u32);
         log::info!("Rendered Phase 4D Interactive Desktop with Input Subsystem.");
 
+        // Phase 4E: Register and Launch File Manager desktop application
+        log::info!("Initializing Phase 4E File Manager application ('Files')...");
+        apps::files::open_or_focus_files_window(&mut wm);
+        let mut shell = desktop::DesktopShell::new(info.width as u32, info.height as u32);
+        shell.render_with_wm(&mut backbuffer, Some(&wm));
+        graphics::present(&backbuffer, fb);
+        let desktop_done_tsc = unsafe { core::arch::x86_64::_rdtsc() };
+        log::info!("Rendered Phase 4E Desktop with active File Manager window.");
+        log::info!(
+            "[Boot Timing] 4. Desktop Shell & Window Manager ready: {} cycles (+{} cycles)",
+            desktop_done_tsc,
+            desktop_done_tsc.saturating_sub(gfx_done_tsc)
+        );
+
         println!("\x1b[1;32m================================================================");
         println!(" [SUCCESS] Micro-OS Phase 1 Bare-Metal Kernel Boot Complete!    ");
         println!(" Interactive Desktop Event Loop active. Ready for input.        ");
         println!("================================================================\x1b[0m");
 
-        // SAFETY: Re-enable hardware interrupts now that 8042 controller and PIC are initialized
-        x86_64::instructions::interrupts::enable();
+        // SAFETY: Strictly mask all 8259 PIC IRQ lines and keep CPU interrupts disabled
+        // during the interactive Desktop Event Loop.
+        // Pure hardware polling of ports 0x64/0x60 avoids race conditions with ISRs,
+        // eliminates Mutex re-entrancy, and prevents timer/keyboard interrupt faults on laptops.
+        unsafe {
+            arch::x86_64::pic::mask_all();
+        }
+        x86_64::instructions::interrupts::disable();
 
+        let total_boot_tsc = unsafe { core::arch::x86_64::_rdtsc() };
+        let uptime_ms = arch::x86_64::timer::uptime_ms();
+        let total_cycles = total_boot_tsc.saturating_sub(boot_start_tsc);
+        log::info!(
+            "[Boot Timing] 5. Complete boot to interactive Desktop Event Loop: {} cycles (PIT Timer: {} ms, {} ticks)",
+            total_cycles,
+            uptime_ms,
+            arch::x86_64::timer::ticks()
+        );
         log::info!("Desktop Event Loop engaged.");
         let mut dispatcher = input::EventDispatcher::new(info.width as u32, info.height as u32);
-        let mut shell = desktop::DesktopShell::new(info.width as u32, info.height as u32);
 
         loop {
+            // Actively poll hardware port 0x64/0x60 for keyboard/mouse scancodes
+            input::poll_hardware();
+
+            // Cooperatively poll Ethernet interface for incoming packets
+            let net_activity = net::poll();
+
             let mut needs_redraw = false;
             while let Some(event) = input::pop_event() {
                 needs_redraw |= dispatcher.dispatch(event, &mut wm, &mut shell);
             }
+            needs_redraw |= net_activity;
 
             if needs_redraw {
                 shell.render_with_wm(&mut backbuffer, Some(&wm));
                 graphics::present(&backbuffer, fb);
             }
 
-            x86_64::instructions::hlt();
+            // Safe bounded micro-pause: avoids 100% CPU bus saturation while
+            // guaranteeing sub-millisecond keyboard response latency
+            // without putting the processor into an unrecoverable hlt sleep.
+            for _ in 0..1000 {
+                core::hint::spin_loop();
+            }
         }
     } else {
         log::warn!("No linear framebuffer detected; running in headless/serial mode.");

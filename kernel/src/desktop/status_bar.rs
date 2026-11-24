@@ -4,7 +4,6 @@
 //! system architecture identification, physical RAM and kernel heap metrics,
 //! honest timer-driven uptime, and an unconfigured clock indicator.
 
-use alloc::format;
 use crate::arch::x86_64::timer::uptime_ms;
 use crate::graphics::color::Color;
 use crate::graphics::font::{draw_string, measure_string};
@@ -62,20 +61,45 @@ pub fn render_status_bar(surface: &mut Surface, metrics: &StatusMetrics) {
     let total_secs = uptime_ms() / 1000;
     let mins = total_secs / 60;
     let secs = total_secs % 60;
-    let uptime_str = format!("UP: {:02}:{:02}", mins, secs);
 
-    // Assembly telemetry items: (label, text, color)
-    let ram_str = format!("RAM: {}M", metrics.total_ram_mb);
-    let heap_str = format!("HEAP: {}K", metrics.heap_size_kb);
-    let time_str = format!("TIME: {}", metrics.clock_str);
-    let arch_str = format!("ARCH: {}", metrics.arch);
+    let mut uptime_buf = [0u8; 32];
+    let mut ram_buf = [0u8; 32];
+    let mut heap_buf = [0u8; 32];
+    let mut time_buf = [0u8; 32];
+    let mut arch_buf = [0u8; 32];
+
+    let uptime_str = format_uptime(&mut uptime_buf, mins, secs);
+    let ram_str = format_num(&mut ram_buf, "RAM: ", metrics.total_ram_mb, "M");
+    let heap_str = format_num(&mut heap_buf, "HEAP: ", metrics.heap_size_kb as u64, "K");
+    let time_str = format_str(&mut time_buf, "TIME: ", metrics.clock_str);
+    let arch_str = format_str(&mut arch_buf, "ARCH: ", metrics.arch);
+
+    // Dynamic Network Link & Wi-Fi Telemetry Indicator
+    let (net_str, net_color) = if crate::net::rtl8852be::is_wifi_connected() {
+        ("[WIFI: Connected]", Color::SUCCESS_GREEN)
+    } else if crate::net::rtl8852be::is_wifi_associated() {
+        ("[WIFI: Linking...]", Color::ACCENT_CYAN)
+    } else if crate::net::get_link_status().map(|s| s.is_up).unwrap_or(false) {
+        if let Some(stack) = crate::net::NETWORK_STACK.try_lock() {
+            if stack.ipv4_address().is_some() {
+                ("[ETH: Connected]", Color::SUCCESS_GREEN)
+            } else {
+                ("[ETH: Linking...]", Color::ACCENT_CYAN)
+            }
+        } else {
+            ("[ETH: Linking...]", Color::ACCENT_CYAN)
+        }
+    } else {
+        ("[NET: Disconnected]", Color::TEXT_MUTED)
+    };
 
     let items = [
-        (arch_str.as_str(), Color::TEXT_MUTED),
-        (ram_str.as_str(), Color::TEXT_LIGHT),
-        (heap_str.as_str(), Color::TEXT_LIGHT),
-        (uptime_str.as_str(), Color::SUCCESS_GREEN),
-        (time_str.as_str(), Color::TEXT_MUTED),
+        (arch_str, Color::TEXT_MUTED),
+        (ram_str, Color::TEXT_LIGHT),
+        (heap_str, Color::TEXT_LIGHT),
+        (net_str, net_color),
+        (uptime_str, Color::SUCCESS_GREEN),
+        (time_str, Color::TEXT_MUTED),
         ("[RUNNING]", Color::ACCENT_AZURE),
     ];
 
@@ -86,4 +110,78 @@ pub fn render_status_bar(surface: &mut Surface, metrics: &StatusMetrics) {
         draw_string(surface, cur_x, 12, text, *color, None, 1);
         cur_x -= 16; // 16px gap between items
     }
+}
+
+/// Zero-allocation number formatting into a stack buffer.
+fn format_num<'a>(buf: &'a mut [u8], prefix: &str, mut val: u64, suffix: &str) -> &'a str {
+    let mut idx = 0;
+    for &b in prefix.as_bytes() {
+        if idx < buf.len() {
+            buf[idx] = b;
+            idx += 1;
+        }
+    }
+    let start_digits = idx;
+    if val == 0 {
+        if idx < buf.len() {
+            buf[idx] = b'0';
+            idx += 1;
+        }
+    } else {
+        while val > 0 && idx < buf.len() {
+            buf[idx] = b'0' + (val % 10) as u8;
+            val /= 10;
+            idx += 1;
+        }
+        buf[start_digits..idx].reverse();
+    }
+    for &b in suffix.as_bytes() {
+        if idx < buf.len() {
+            buf[idx] = b;
+            idx += 1;
+        }
+    }
+    core::str::from_utf8(&buf[..idx]).unwrap_or("")
+}
+
+/// Zero-allocation string concatenation into a stack buffer.
+fn format_str<'a>(buf: &'a mut [u8], prefix: &str, s: &str) -> &'a str {
+    let mut idx = 0;
+    for &b in prefix.as_bytes() {
+        if idx < buf.len() {
+            buf[idx] = b;
+            idx += 1;
+        }
+    }
+    for &b in s.as_bytes() {
+        if idx < buf.len() {
+            buf[idx] = b;
+            idx += 1;
+        }
+    }
+    core::str::from_utf8(&buf[..idx]).unwrap_or("")
+}
+
+/// Zero-allocation uptime timestamp formatting ("UP: MM:SS").
+fn format_uptime<'a>(buf: &'a mut [u8], mins: u64, secs: u64) -> &'a str {
+    let mut idx = 0;
+    for &b in b"UP: " {
+        buf[idx] = b;
+        idx += 1;
+    }
+    let m1 = ((mins / 10) % 10) as u8;
+    let m2 = (mins % 10) as u8;
+    buf[idx] = b'0' + m1;
+    idx += 1;
+    buf[idx] = b'0' + m2;
+    idx += 1;
+    buf[idx] = b':';
+    idx += 1;
+    let s1 = ((secs / 10) % 10) as u8;
+    let s2 = (secs % 10) as u8;
+    buf[idx] = b'0' + s1;
+    idx += 1;
+    buf[idx] = b'0' + s2;
+    idx += 1;
+    core::str::from_utf8(&buf[..idx]).unwrap_or("")
 }

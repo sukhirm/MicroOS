@@ -28,7 +28,11 @@ const TIMEOUT_LIMIT: usize = 100_000;
 pub fn wait_write_ready() -> Result<(), ()> {
     let mut status_port: Port<u8> = Port::new(PS2_STATUS_PORT);
     for _ in 0..TIMEOUT_LIMIT {
-        if (unsafe { status_port.read() } & STATUS_INPUT_BUFFER_FULL) == 0 {
+        let status = unsafe { status_port.read() };
+        if status == 0xFF {
+            return Err(()); // Floating bus
+        }
+        if (status & STATUS_INPUT_BUFFER_FULL) == 0 {
             return Ok(());
         }
         core::hint::spin_loop();
@@ -40,7 +44,11 @@ pub fn wait_write_ready() -> Result<(), ()> {
 pub fn wait_read_ready() -> Result<(), ()> {
     let mut status_port: Port<u8> = Port::new(PS2_STATUS_PORT);
     for _ in 0..TIMEOUT_LIMIT {
-        if (unsafe { status_port.read() } & STATUS_OUTPUT_BUFFER_FULL) != 0 {
+        let status = unsafe { status_port.read() };
+        if status == 0xFF {
+            return Err(()); // Floating bus
+        }
+        if (status & STATUS_OUTPUT_BUFFER_FULL) != 0 {
             return Ok(());
         }
         core::hint::spin_loop();
@@ -71,19 +79,13 @@ pub fn read_data() -> Result<u8, ()> {
     Ok(unsafe { data_port.read() })
 }
 
-/// Routes a data byte to the secondary PS/2 port (auxiliary mouse).
-pub fn write_mouse(data: u8) -> Result<(), ()> {
-    // Command 0xD4 instructs the 8042 controller to route the next data byte to the mouse
-    send_command(0xD4)?;
-    write_data(data)
-}
-
 /// Flushes any stale data from the controller output buffer.
 pub fn flush_output_buffer() {
     let mut status_port: Port<u8> = Port::new(PS2_STATUS_PORT);
     let mut data_port: Port<u8> = Port::new(PS2_DATA_PORT);
     for _ in 0..32 {
-        if (unsafe { status_port.read() } & STATUS_OUTPUT_BUFFER_FULL) != 0 {
+        let status = unsafe { status_port.read() };
+        if status != 0xFF && (status & STATUS_OUTPUT_BUFFER_FULL) != 0 {
             let _ = unsafe { data_port.read() };
         } else {
             break;
@@ -91,84 +93,94 @@ pub fn flush_output_buffer() {
     }
 }
 
-/// Initializes the 8042 PS/2 controller, keyboard, and mouse channels.
+/// Actively and non-blockingly polls the 8042 controller status and data ports (0x64 / 0x60).
 ///
-/// Returns `Ok(())` on successful configuration or `Err(&str)` on failure.
-/// Will not panic or hang if the hardware is unresponsive.
-pub fn init() -> Result<(), &'static str> {
-    log::info!("[PS/2] Initializing 8042 PS/2 controller...");
+/// Bounded and non-allocating: performs a single-read check of status port 0x64.
+/// If bit 0 (STATUS_OUTPUT_BUFFER_FULL) is set and status != 0xFF:
+/// - If bit 5 (STATUS_MOUSE_DATA) is 0: routes scancode to keyboard decoder.
+/// - If bit 5 is 1: discards auxiliary data safely to prevent corrupting keyboard stream.
+/// Returns true if a keyboard byte was read and processed, false otherwise.
+pub fn poll_hardware() -> bool {
+    let mut status_port: Port<u8> = Port::new(PS2_STATUS_PORT);
+    let status = unsafe { status_port.read() };
 
-    // 1. Flush any pending data
+    // 0xFF represents a floating bus (no PS/2 hardware / disconnected controller)
+    if status == 0xFF || (status & STATUS_OUTPUT_BUFFER_FULL) == 0 {
+        return false;
+    }
+
+    let mut data_port: Port<u8> = Port::new(PS2_DATA_PORT);
+    let byte = unsafe { data_port.read() };
+
+    if (status & STATUS_MOUSE_DATA) != 0 {
+        // Auxiliary device (touchpad / mouse) data: forward to PS/2 mouse decoder
+        crate::input::mouse::handle_byte(byte);
+        true
+    } else {
+        // First PS/2 port (keyboard) scancode byte
+        crate::input::keyboard::handle_scancode(byte);
+        true
+    }
+}
+
+/// Initializes the 8042 PS/2 controller in keyboard-only mode.
+///
+/// Performs safe, bounded keyboard channel initialization:
+/// - Flushes output buffer.
+/// - Disables keyboard (0xAD) and mouse (0xA7) ports during configuration.
+/// - Reads and configures Controller Configuration Byte (CCB) to enable IRQ1, enable keyboard clock,
+///   enable Set 1 translation, and keep mouse clock/interrupt disabled.
+/// - Enables primary keyboard port (0xAE).
+/// - Sends scanning enable (0xF4) with bounded wait for optional ACK.
+/// - Strictly avoids secondary mouse port commands (0xA8, 0xD4) to prevent hardware lockup or spurious IRQs.
+pub fn init() -> Result<(), &'static str> {
+    log::info!("[PS/2] Initializing 8042 PS/2 controller in keyboard-only mode...");
+
+    // 1. Flush any pending data from previous BIOS/UEFI operations
     flush_output_buffer();
 
     // 2. Disable both PS/2 ports during initialization
     let _ = send_command(0xAD); // Disable keyboard
-    let _ = send_command(0xA7); // Disable mouse
+    let _ = send_command(0xA7); // Disable mouse (secondary)
     flush_output_buffer();
 
     // 3. Read Controller Configuration Byte (CCB)
-    if send_command(0x20).is_err() {
-        return Err("Failed to send read CCB command to 8042 controller");
-    }
-    let mut ccb = match read_data() {
-        Ok(b) => b,
-        Err(_) => return Err("Timed out reading CCB from 8042 controller"),
-    };
+    if send_command(0x20).is_ok() {
+        if let Ok(mut ccb) = read_data() {
+            // Modify configuration byte:
+            // Bit 0: Enable Keyboard Interrupt (IRQ1)
+            // Bit 1: Disable Mouse Interrupt (IRQ12)
+            // Bit 4: Enable Keyboard Clock (clear disable bit)
+            // Bit 5: Disable Mouse Clock (set disable bit)
+            // Bit 6: Enable Translation (Translate Set 2 to Set 1)
+            ccb |= 0x01;  // Enable IRQ1
+            ccb &= !0x02; // Disable IRQ12
+            ccb &= !0x10; // Clear keyboard clock disable
+            ccb |= 0x20;  // Set mouse clock disable
+            ccb |= 0x40;  // Enable Set 1 translation
 
-    // 4. Modify configuration byte:
-    // Bit 0: Enable Keyboard Interrupt (IRQ1)
-    // Bit 1: Enable Mouse Interrupt (IRQ12)
-    // Bit 4: Enable Keyboard Clock (clear disable bit)
-    // Bit 5: Enable Mouse Clock (clear disable bit)
-    // Bit 6: Enable Translation (Translate Set 2 to Set 1)
-    ccb |= 0x01;  // Enable IRQ1
-    ccb |= 0x02;  // Enable IRQ12
-    ccb &= !0x10; // Clear keyboard clock disable
-    ccb &= !0x20; // Clear mouse clock disable
-    ccb |= 0x40;  // Enable Set 1 translation
-
-    // 5. Write back modified CCB
-    if send_command(0x60).is_err() || write_data(ccb).is_err() {
-        return Err("Failed to write updated CCB to 8042 controller");
+            if send_command(0x60).is_ok() {
+                let _ = write_data(ccb);
+            }
+        } else {
+            log::warn!("[PS/2] CCB read timed out; proceeding with port enable.");
+        }
     }
 
-    // 6. Enable both PS/2 device ports
+    // 4. Keyboard Channel Initialization
     if send_command(0xAE).is_err() {
         log::warn!("[PS/2] Failed to enable keyboard port (0xAE)");
     }
-    if send_command(0xA8).is_err() {
-        log::warn!("[PS/2] Failed to enable mouse port (0xA8)");
-    }
 
-    // 7. Configure Mouse Device
-    // Reset mouse (0xFF) -> expects ACK 0xFA, then self-test 0xAA, then device ID 0x00
-    if write_mouse(0xFF).is_ok() {
-        let _ = read_data(); // ACK 0xFA
-        let _ = read_data(); // 0xAA
-        let _ = read_data(); // 0x00
-    }
-
-    // Set mouse to default sampling parameters (0xF6)
-    if write_mouse(0xF6).is_ok() {
-        let _ = read_data(); // ACK 0xFA
-    }
-
-    // Enable mouse streaming data reporting (0xF4)
-    if write_mouse(0xF4).is_ok() {
-        let _ = read_data(); // ACK 0xFA
-        log::info!("[PS/2] Mouse streaming data reporting enabled.");
-    } else {
-        log::warn!("[PS/2] Failed to enable mouse data reporting.");
-    }
-
-    // 8. Configure Keyboard Device
-    // Enable keyboard scanning (0xF4)
+    // Enable keyboard scanning (command 0xF4 to data port)
     if write_data(0xF4).is_ok() {
-        let _ = read_data(); // ACK 0xFA
-        log::info!("[PS/2] Keyboard scanning enabled.");
+        let _ = read_data(); // Optional ACK (0xFA) with bounded timeout
+        log::info!("[PS/2] Keyboard scanning enabled (0xF4).");
+    } else {
+        log::warn!("[PS/2] Failed to send keyboard scanning command (0xF4).");
     }
 
     flush_output_buffer();
-    log::info!("[PS/2] 8042 Controller initialized successfully (IRQ1 & IRQ12 active).");
+    log::info!("[PS/2] 8042 Controller initialized (keyboard-only, bounded polling ready).");
     Ok(())
 }

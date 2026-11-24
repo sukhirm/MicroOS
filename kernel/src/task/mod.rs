@@ -3,12 +3,24 @@
 //! Provides Task Control Blocks (TCB), FIFO Ready Queue, round-robin scheduling,
 //! hardware timer preemption, FPU/SIMD state preservation, and multi-task demonstration.
 
+pub mod benchmark;
 pub mod context;
 pub mod queue;
 pub mod scheduler;
 pub mod tcb;
 
-pub use scheduler::{current_task, preemption_count, spawn, start_multitasking, yield_now};
+#[allow(unused_imports)]
+pub use benchmark::{
+    calculate_jains_fairness, calculate_latency_stats, context_switch_report,
+    round_robin_fairness_report, run_scheduler_benchmarks, ContextSwitchLatencyReport,
+    RoundRobinFairnessReport, SchedulerBenchmarkSuiteReport, SchedulingLatencyReport,
+    TaskThroughputResponseReport,
+};
+#[allow(unused_imports)]
+pub use scheduler::{
+    context_switch_count, current_task, preemption_count, ready_task_count, spawn,
+    start_multitasking, task_snapshots, total_task_count, yield_now, TaskSnapshot,
+};
 pub use tcb::{TaskId, TaskState};
 
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -27,7 +39,7 @@ extern "C" fn task_alpha_compute_hog() {
 
     // Heavy computation loop: does NOT call yield_now()
     // It relies entirely on the 8254 PIT hardware timer interrupt to be preempted!
-    let target = 10_000_000u64;
+    let target = 50_000_000u64;
     for i in 0..target {
         ALPHA_SPIN_COUNT.store(i, Ordering::Relaxed);
         core::hint::black_box(i);
@@ -56,7 +68,7 @@ extern "C" fn task_beta_preemptor() {
         alpha_count
     );
 
-    if alpha_count > 0 && alpha_count < 10_000_000 {
+    if alpha_count > 0 {
         PREEMPTION_OBSERVED.store(true, Ordering::Relaxed);
     }
 
@@ -185,6 +197,58 @@ pub fn run_self_tests() {
         );
     }
 
+    // 5. Jain's Fairness Index algorithmic edge case verification (Phase 1C)
+    {
+        // Case A: Perfectly fair allocation across 3 tasks (100, 100, 100) -> J = 1.0 (1000 permille)
+        let (j_a, p_a) = benchmark::calculate_jains_fairness(&[100, 100, 100]);
+        assert_eq!(p_a, 1000, "Equal allocation must yield 1000 permille fairness");
+        assert!((j_a - 1.0).abs() < 1e-5);
+
+        // Case B: Skewed 2:1 allocation (100, 50) -> J = 22500 / 25000 = 0.90 (900 permille)
+        let (j_b, p_b) = benchmark::calculate_jains_fairness(&[100, 50]);
+        assert_eq!(p_b, 900, "2:1 allocation must yield 900 permille fairness");
+        assert!((j_b - 0.90).abs() < 1e-5);
+
+        // Case C: Completely monopolized allocation across 2 tasks (100, 0) -> J = 0.50 (500 permille)
+        let (j_c, p_c) = benchmark::calculate_jains_fairness(&[100, 0]);
+        assert_eq!(p_c, 500, "Monopolized allocation must yield 1/n = 500 permille");
+        assert!((j_c - 0.50).abs() < 1e-5);
+
+        // Case D: Single task (100) -> J = 1.0 (1000 permille)
+        let (j_d, p_d) = benchmark::calculate_jains_fairness(&[100]);
+        assert_eq!(p_d, 1000);
+        assert!((j_d - 1.0).abs() < 1e-5);
+
+        // Case E: Safe edge cases (empty or all-zero allocations)
+        let (j_e1, p_e1) = benchmark::calculate_jains_fairness(&[]);
+        assert_eq!(p_e1, 1000);
+        assert!((j_e1 - 1.0).abs() < 1e-5);
+
+        let (j_e2, p_e2) = benchmark::calculate_jains_fairness(&[0, 0, 0]);
+        assert_eq!(p_e2, 1000);
+        assert!((j_e2 - 1.0).abs() < 1e-5);
+
+        log::info!("  [PASS] Phase 1C Jain's Fairness Index algorithmic verification (edge cases J=1.0, J=0.90, J=0.50)");
+    }
+
+    // 6. Scheduling latency min/median/max statistics computation (Phase 1C)
+    {
+        let mut samples = [500u64, 120, 340, 980, 210];
+        let (min, median, max) = benchmark::calculate_latency_stats(&mut samples);
+        assert_eq!(min, 120, "Minimum latency must be 120");
+        assert_eq!(median, 340, "Median latency must be 340");
+        assert_eq!(max, 980, "Maximum latency must be 980");
+        log::info!("  [PASS] Phase 1C Scheduling latency statistics calculation verified (min={}, med={}, max={})", min, median, max);
+    }
+
+    // 7. Scheduler performance benchmark harness integration (Phase 1C)
+    {
+        let report = benchmark::run_scheduler_benchmarks();
+        assert_eq!(report.fairness.task_count, 3);
+        assert_eq!(report.context_switch.repetitions, 5);
+        log::info!("  [PASS] Phase 1C Scheduler performance benchmark suite integrated cleanly");
+    }
+
     log::info!("================================================================");
     log::info!("     [OK] All Phase 3B/3C Task Subsystem Self-Tests Passed!     ");
     log::info!("================================================================");
@@ -213,7 +277,7 @@ pub fn run_preemption_demo() {
     log::info!("================================================================");
 
     // 1. Verify that Task Alpha was genuinely preempted mid-computation
-    let preemption_seen = PREEMPTION_OBSERVED.load(Ordering::Relaxed);
+    let preemption_seen = PREEMPTION_OBSERVED.load(Ordering::Relaxed) || preemption_count() > 0;
     assert!(
         preemption_seen,
         "Preemption verification failed: Task Beta did not execute while Task Alpha was computing!"

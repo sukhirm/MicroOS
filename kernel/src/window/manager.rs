@@ -290,6 +290,18 @@ impl WindowManager {
         }
     }
 
+    /// Returns the target screen width in pixels.
+    #[inline(always)]
+    pub fn screen_width(&self) -> u32 {
+        self.screen_width
+    }
+
+    /// Returns the target screen height in pixels.
+    #[inline(always)]
+    pub fn screen_height(&self) -> u32 {
+        self.screen_height
+    }
+
     /// Cycles focus through visible windows in Z-order (e.g. on Alt+Tab).
     pub fn cycle_active_window(&mut self) {
         if self.z_order.len() <= 1 {

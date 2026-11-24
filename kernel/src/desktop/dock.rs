@@ -1,8 +1,8 @@
 //! Desktop Floating Application Dock Component.
 //!
 //! Provides a floating, rounded shelf centered near the bottom of the screen,
-//! featuring embedded icons for the 6 core MicroOS system applications:
-//! File Manager, Settings, System Monitor, Network Manager, Terminal, and Software Store.
+//! featuring embedded icons for the 7 core MicroOS system applications:
+//! File Manager, Settings, System Monitor, Network Manager, Terminal, Software Store, and Deadlock Research Lab.
 
 use crate::graphics::color::Color;
 use crate::graphics::font::{draw_string, measure_string};
@@ -23,8 +23,8 @@ pub struct DockItem {
     pub accent_color: Color,
 }
 
-/// The 6 canonical application entries displayed on the MicroOS desktop dock.
-pub static DOCK_ITEMS: [DockItem; 6] = [
+/// The 7 canonical application entries displayed on the MicroOS desktop dock.
+pub static DOCK_ITEMS: [DockItem; 7] = [
     DockItem {
         name: "Files",
         icon: &ICON_FOLDER,
@@ -54,6 +54,11 @@ pub static DOCK_ITEMS: [DockItem; 6] = [
         name: "Store",
         icon: &ICON_STORE,
         accent_color: Color::WARNING_AMBER,
+    },
+    DockItem {
+        name: "Deadlock",
+        icon: &ICON_DEADLOCK,
+        accent_color: Color::ACCENT_CYAN,
     },
 ];
 

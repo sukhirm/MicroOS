@@ -1,4 +1,6 @@
-/target
-*.img
+ /target/
 *.iso
+*.img
 *.log
+/backup_*/
+ /scratch/

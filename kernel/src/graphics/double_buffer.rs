@@ -1,7 +1,8 @@
 //! Off-Screen Double Buffering Engine.
 //!
-//! Manages an off-screen surface backed by a dedicated 4 MiB virtual memory region
+//! Manages an off-screen surface backed by a dedicated 16 MiB virtual memory region
 //! (`BACKBUFFER_START`), providing tear-free rendering and fast VRAM synchronization.
+//! Supports up to 2560x1440 QHD (14.7 MB) and 1920x1080 FHD (8.3 MB) 32-bit framebuffers.
 
 use bootloader_api::info::{FrameBuffer, PixelFormat};
 
@@ -9,7 +10,62 @@ use super::geometry::Rect;
 use super::surface::Surface;
 use crate::memory::{BACKBUFFER_SIZE, BACKBUFFER_START};
 
-/// Instantiates an off-screen Surface backed by the dedicated 4 MiB virtual memory region.
+/// Errors that can occur during off-screen backbuffer surface instantiation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackbufferError {
+    /// Geometry exceeds the maximum capacity of BACKBUFFER_SIZE (16 MiB).
+    CapacityExceeded { required: usize, max: usize },
+    /// Pixel format is unsupported for double buffering.
+    UnsupportedFormat,
+    /// Arithmetic overflow calculating required byte size.
+    GeometryOverflow,
+}
+
+/// Validates and instantiates an off-screen Surface backed by the dedicated 16 MiB virtual memory region.
+/// Returns an error if the framebuffer geometry exceeds `BACKBUFFER_SIZE` or arithmetic overflows.
+///
+/// # Safety
+/// The caller must ensure that `memory::init()` has mapped `[BACKBUFFER_START, BACKBUFFER_START + BACKBUFFER_SIZE)`.
+pub unsafe fn try_create_backbuffer_surface(
+    width: usize,
+    height: usize,
+    stride: usize,
+    pixel_format: PixelFormat,
+) -> Result<Surface<'static>, BackbufferError> {
+    let bytes_per_pixel = match pixel_format {
+        PixelFormat::Rgb | PixelFormat::Bgr => 4,
+        PixelFormat::U8 => 1,
+        _ => return Err(BackbufferError::UnsupportedFormat),
+    };
+
+    let row_bytes = stride
+        .checked_mul(bytes_per_pixel)
+        .ok_or(BackbufferError::GeometryOverflow)?;
+    let required_bytes = row_bytes
+        .checked_mul(height)
+        .ok_or(BackbufferError::GeometryOverflow)?;
+
+    if required_bytes > BACKBUFFER_SIZE {
+        return Err(BackbufferError::CapacityExceeded {
+            required: required_bytes,
+            max: BACKBUFFER_SIZE,
+        });
+    }
+
+    let slice = core::slice::from_raw_parts_mut(BACKBUFFER_START as *mut u8, required_bytes);
+
+    Ok(Surface::from_raw_parts(
+        slice,
+        width,
+        height,
+        stride,
+        bytes_per_pixel,
+        pixel_format,
+    ))
+}
+
+/// Instantiates an off-screen Surface backed by the dedicated 16 MiB virtual memory region.
+/// Panics with a clear descriptive diagnostic message if `try_create_backbuffer_surface` fails.
 ///
 /// # Safety
 /// The caller must ensure that `memory::init()` has mapped `[BACKBUFFER_START, BACKBUFFER_START + BACKBUFFER_SIZE)`.
@@ -19,30 +75,24 @@ pub unsafe fn create_backbuffer_surface(
     stride: usize,
     pixel_format: PixelFormat,
 ) -> Surface<'static> {
-    let bytes_per_pixel = match pixel_format {
-        PixelFormat::Rgb | PixelFormat::Bgr => 4,
-        PixelFormat::U8 => 1,
-        _ => 4,
-    };
-
-    let required_bytes = stride * height * bytes_per_pixel;
-    assert!(
-        required_bytes <= BACKBUFFER_SIZE,
-        "Framebuffer geometry requires {} bytes, but backbuffer size is {}",
-        required_bytes,
-        BACKBUFFER_SIZE
-    );
-
-    let slice = core::slice::from_raw_parts_mut(BACKBUFFER_START as *mut u8, required_bytes);
-
-    Surface::from_raw_parts(
-        slice,
-        width,
-        height,
-        stride,
-        bytes_per_pixel,
-        pixel_format,
-    )
+    match try_create_backbuffer_surface(width, height, stride, pixel_format) {
+        Ok(surface) => surface,
+        Err(BackbufferError::CapacityExceeded { required, max }) => {
+            panic!(
+                "Framebuffer geometry requires {} bytes, but backbuffer capacity is {} bytes (16 MiB)",
+                required, max
+            );
+        }
+        Err(BackbufferError::UnsupportedFormat) => {
+            panic!("Unsupported framebuffer pixel format: {:?}", pixel_format);
+        }
+        Err(BackbufferError::GeometryOverflow) => {
+            panic!(
+                "Arithmetic overflow calculating framebuffer geometry: {}x{} stride {}",
+                width, height, stride
+            );
+        }
+    }
 }
 
 /// Flushes the entire off-screen surface to the physical hardware framebuffer.

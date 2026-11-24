@@ -18,15 +18,18 @@ pub use color::Color;
 #[allow(unused_imports)]
 pub use demo::render_demo;
 #[allow(unused_imports)]
-pub use double_buffer::{create_backbuffer_surface, present, present_rect};
+pub use double_buffer::{
+    create_backbuffer_surface, present, present_rect, try_create_backbuffer_surface,
+    BackbufferError,
+};
 #[allow(unused_imports)]
 pub use font::{draw_char, draw_string, measure_string};
 #[allow(unused_imports)]
 pub use geometry::{Point, Rect};
 #[allow(unused_imports)]
 pub use icon::{
-    draw_icon, Icon, ICON_ACTIVITY, ICON_CHECK, ICON_CLOSE, ICON_FOLDER, ICON_GEAR,
-    ICON_NETWORK, ICON_STORE, ICON_TERMINAL,
+    draw_icon, Icon, ICON_ACTIVITY, ICON_CHECK, ICON_CLOSE, ICON_FILE, ICON_FOLDER, ICON_GEAR,
+    ICON_NETWORK, ICON_STORE, ICON_TERMINAL, ICON_DEADLOCK,
 };
 #[allow(unused_imports)]
 pub use surface::Surface;

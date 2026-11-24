@@ -107,15 +107,15 @@ fn test_dock_positioning_and_dimensions() {
     let expected_x = ((screen_w - dock_rect.width) / 2) as i32;
     assert_eq!(dock_rect.x, expected_x, "Dock must be horizontally centered");
 
-    // Verify 6 dock items
-    assert_eq!(DOCK_ITEMS.len(), 6, "Dock must contain exactly 6 application entries");
+    // Verify 7 dock items
+    assert_eq!(DOCK_ITEMS.len(), 7, "Dock must contain 7 application entries");
 
     log::info!("  [PASS] 3. Floating dock positioning, horizontal centering, and geometry test");
 }
 
 /// 4. Verifies dock item slots, icon rendering, and label positioning.
 fn test_dock_icon_rendering() {
-    let screen_w = 420;
+    let screen_w = 520;
     let screen_h = 100;
     let mut buf = vec![0u8; (screen_w * screen_h * 4) as usize];
     let mut surface = Surface::from_raw_parts(&mut buf, screen_w as usize, screen_h as usize, screen_w as usize, 4, PixelFormat::Bgr);
@@ -123,20 +123,27 @@ fn test_dock_icon_rendering() {
     render_dock(&mut surface);
 
     let dock_rect = get_dock_bounds(screen_w, screen_h);
-    // Point inside dock card must be CARD_SLATE
+    // 1. Dock background card fill (left margin before first tile) must be CARD_SLATE
     assert_eq!(
-        surface.get_pixel(dock_rect.x + (dock_rect.width as i32 / 2), dock_rect.y + 10),
+        surface.get_pixel(dock_rect.x + 20, dock_rect.y + 10),
         Some(Color::CARD_SLATE),
         "Dock background card fill mismatch"
     );
 
-    // Verify all 6 application names are distinct
-    let names = ["Files", "Settings", "SysMon", "Network", "Terminal", "Store"];
+    // 2. Center tile container box (item 3: Network) fill must be SURFACE_SLATE
+    assert_eq!(
+        surface.get_pixel(dock_rect.x + (dock_rect.width as i32 / 2), dock_rect.y + 10),
+        Some(Color::SURFACE_SLATE),
+        "Dock center tile container fill mismatch"
+    );
+
+    // Verify all 7 application names are distinct
+    let names = ["Files", "Settings", "SysMon", "Network", "Terminal", "Store", "Deadlock"];
     for (i, item) in DOCK_ITEMS.iter().enumerate() {
         assert_eq!(item.name, names[i]);
     }
 
-    log::info!("  [PASS] 4. Dock 6-application icon mapping, card slots, and labels test");
+    log::info!("  [PASS] 4. Dock 7-application icon mapping, card slots, and labels test");
 }
 
 /// 5. Verifies cursor bounds, clipping at screen edges, and save/restore fidelity.

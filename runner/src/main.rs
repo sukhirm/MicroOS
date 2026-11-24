@@ -8,6 +8,20 @@ fn main() -> anyhow::Result<()> {
     let is_test_mode = args.iter().any(|a| a == "--test");
     let is_headless = args.iter().any(|a| a == "--headless") || is_test_mode;
     let is_release = args.iter().any(|a| a == "--release");
+    let is_iso_requested = args.iter().any(|a| a == "--iso");
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Usage: cargo run -p runner -- [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --build        Build the disk image without launching QEMU");
+        println!("  --release      Build in release mode (creates both .img and .iso)");
+        println!("  --iso          Synthesize and validate a genuine Hybrid UEFI bootable ISO image");
+        println!("  --test         Run automated boot milestones in headless mode");
+        println!("  --headless     Run QEMU with display=none");
+        println!("  --display <be> Set QEMU display backend (sdl, gtk, none)");
+        return Ok(());
+    }
 
     let display_backend = if is_headless {
         "none".to_string()
@@ -55,12 +69,34 @@ fn main() -> anyhow::Result<()> {
     }
     println!("[Runner] Kernel compiled successfully: {}", kernel_bin_path.display());
 
-    // 3. Create bootable UEFI disk image
+    // 3. Create bootable UEFI disk image (.img) - Always preserved!
     let uefi_img_path = target_dir.join(format!("micro_os_uefi_{}.img", profile));
     println!("[Runner] Packaging bootable UEFI disk image with bootloader...");
     let uefi_boot = bootloader::UefiBoot::new(&kernel_bin_path);
     uefi_boot.create_disk_image(&uefi_img_path)?;
     println!("[Runner] Bootable UEFI image created: {}", uefi_img_path.display());
+
+    // 3b. Create bootable Hybrid UEFI ISO image (.iso) if requested or in release mode
+    if is_iso_requested || is_release {
+        let uefi_iso_path = target_dir.join(format!("micro_os_uefi_{}.iso", profile));
+        println!("[Runner] Packaging genuine Hybrid UEFI bootable ISO image (El Torito + Hybrid MBR)...");
+        let iso_size = runner::iso::create_hybrid_uefi_iso_file(
+            &kernel_bin_path,
+            &uefi_iso_path,
+            "MICRO_OS_LIVE",
+        )?;
+        println!(
+            "[Runner] Hybrid UEFI ISO image created: {} ({} bytes / {:.2} MiB)",
+            uefi_iso_path.display(),
+            iso_size,
+            iso_size as f64 / 1048576.0
+        );
+
+        // Run independent structural validation
+        println!("[Runner] Running independent structural ISO validation...");
+        let report = runner::iso_verify::verify_hybrid_iso_file(&uefi_iso_path)?;
+        println!("{}", report.format_summary());
+    }
 
     if is_build_only {
         println!("[Runner] Build completed successfully.");
@@ -126,7 +162,7 @@ fn main() -> anyhow::Result<()> {
                 passed: false,
             },
             MilestoneCheck {
-                name: "6. Kernel virtual heap mapped (1 MiB)",
+                name: "6. Kernel virtual heap mapped (16 MiB)",
                 pattern: "Kernel virtual heap mapped successfully",
                 passed: false,
             },
@@ -306,8 +342,8 @@ fn main() -> anyhow::Result<()> {
                 passed: false,
             },
             MilestoneCheck {
-                name: "42. Dedicated 4 MiB backbuffer mapping & blit test",
-                pattern: "[PASS] 9. Dedicated 4 MiB backbuffer mapping and off-screen blit fidelity test",
+                name: "42. Dedicated 16 MiB backbuffer mapping & multi-resolution blit test",
+                pattern: "[PASS] 9. Dedicated 16 MiB backbuffer mapping, multi-resolution (1280x800, 1920x1080) and bounds test",
                 passed: false,
             },
             MilestoneCheck {
@@ -575,6 +611,506 @@ fn main() -> anyhow::Result<()> {
                 pattern: "Desktop Event Loop engaged.",
                 passed: false,
             },
+            MilestoneCheck {
+                name: "96. VFS initial directory listing test",
+                pattern: "[PASS] 1. Initial VFS directory listing and sample tree test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "97. VFS path canonicalization test",
+                pattern: "[PASS] 2. VFS path canonicalization & relative navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "98. VFS hierarchical directory navigation test",
+                pattern: "[PASS] 3. VFS hierarchical directory navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "99. VFS directory creation & empty directory test",
+                pattern: "[PASS] 4. VFS directory creation & empty directory handling test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "100. VFS file creation, reading, and overwriting test",
+                pattern: "[PASS] 5. VFS file creation, reading, and overwriting test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "101. VFS safe file & directory deletion test",
+                pattern: "[PASS] 6. VFS safe file & directory deletion test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "102. VFS boundary enforcement & invalid path test",
+                pattern: "[PASS] 7. VFS boundary enforcement & invalid path rejection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "103. File Manager initial state & directory listing test",
+                pattern: "[PASS] 1. File Manager initial state & directory listing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "104. File Manager folder navigation & validation test",
+                pattern: "[PASS] 2. File Manager folder navigation & validation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "105. File Manager Back, Forward, Up history test",
+                pattern: "[PASS] 3. File Manager Back, Forward, and Up navigation history test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "106. File Manager sidebar shortcut navigation test",
+                pattern: "[PASS] 4. File Manager sidebar shortcut navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "107. File Manager mouse click hit-testing test",
+                pattern: "[PASS] 5. File Manager mouse click hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "108. File Manager keyboard navigation test",
+                pattern: "[PASS] 6. File Manager keyboard navigation (Arrows, Enter, Backspace) test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "109. File Manager empty directory presentation test",
+                pattern: "[PASS] 7. File Manager empty directory handling & presentation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "110. File Manager window manager registration test",
+                pattern: "[PASS] 8. File Manager window manager registration & focus integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "111. File Manager launched on desktop",
+                pattern: "Rendered Phase 4E Desktop with active File Manager window.",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "112. Settings initial state & default preferences test",
+                pattern: "[PASS] 1. Settings initial state & default preferences test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "113. Settings section navigation & metadata consistency test",
+                pattern: "[PASS] 2. Settings section navigation & metadata consistency test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "114. Settings accent colour selection & palette mapping test",
+                pattern: "[PASS] 3. Settings accent colour selection & palette mapping test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "115. Settings toggle switch state inversion test",
+                pattern: "[PASS] 4. Settings toggle switch state inversion test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "116. Settings display information & backbuffer capacity test",
+                pattern: "[PASS] 5. Settings display information & backbuffer capacity test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "117. Settings input subsystem info & queue capacity test",
+                pattern: "[PASS] 6. Settings input subsystem info & queue capacity test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "118. Settings sidebar mouse hit-testing test",
+                pattern: "[PASS] 7. Settings sidebar mouse hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "119. Settings appearance controls mouse hit-testing test",
+                pattern: "[PASS] 8. Settings appearance controls mouse hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "120. Settings keyboard navigation (Arrows & cycling) test",
+                pattern: "[PASS] 9. Settings keyboard navigation (Arrows & cycling) test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "121. Settings window manager registration & focus integration test",
+                pattern: "[PASS] 10. Settings window manager registration & focus integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "122. Settings rendering clipping safety test",
+                pattern: "[PASS] 11. Settings rendering clipping safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "123. All Phase 4E Settings self-tests passed",
+                pattern: "[OK] All Phase 4E Settings Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "124. System Monitor initial state test",
+                pattern: "[PASS] 1. System Monitor initial state test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "125. System Monitor section navigation & title consistency test",
+                pattern: "[PASS] 2. System Monitor section navigation & title consistency test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "126. System Monitor system info & timer telemetry test",
+                pattern: "[PASS] 3. System Monitor system info & timer telemetry test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "127. System Monitor memory telemetry & heap capacity test",
+                pattern: "[PASS] 4. System Monitor memory telemetry & heap capacity test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "128. System Monitor task listing & snapshot collection test",
+                pattern: "[PASS] 5. System Monitor task listing & snapshot collection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "129. System Monitor scheduler performance counters test",
+                pattern: "[PASS] 6. System Monitor scheduler performance counters test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "130. System Monitor sidebar mouse hit-testing test",
+                pattern: "[PASS] 7. System Monitor sidebar mouse hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "131. System Monitor keyboard navigation test",
+                pattern: "[PASS] 8. System Monitor keyboard navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "132. System Monitor window manager registration & focus integration test",
+                pattern: "[PASS] 9. System Monitor window manager registration & focus integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "133. System Monitor rendering clipping safety test",
+                pattern: "[PASS] 10. System Monitor rendering clipping safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "134. All Phase 4E System Monitor self-tests passed",
+                pattern: "[OK] All Phase 4E System Monitor Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "135. PCI config space address calculation test",
+                pattern: "[PASS] 1. PCI config space address calculation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "136. PCI network controller classification test",
+                pattern: "[PASS] 2. PCI network controller classification test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "137. Realtek RTL8852BE-VT & RTL8168 device identification test",
+                pattern: "[PASS] 3. Realtek RTL8852BE-VT & RTL8168 device identification test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "138. Network adapter driver state lifecycle test",
+                pattern: "[PASS] 4. Network adapter driver state lifecycle test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "139. Network connection state integrity & no fake connectivity test",
+                pattern: "[PASS] 5. Network connection state integrity & no fake connectivity test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "140. Invalid PCI device rejection test",
+                pattern: "[PASS] 6. Invalid PCI device rejection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "141. Network Manager initial state test",
+                pattern: "[PASS] 7. Network Manager initial state test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "142. Network Manager section navigation & title consistency test",
+                pattern: "[PASS] 8. Network Manager section navigation & title consistency test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "143. Network Manager sidebar mouse hit-testing test",
+                pattern: "[PASS] 9. Network Manager sidebar mouse hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "144. Network Manager rescan control click test",
+                pattern: "[PASS] 10. Network Manager rescan control click test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "145. Network Manager keyboard navigation test",
+                pattern: "[PASS] 11. Network Manager keyboard navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "146. Network Manager window manager registration & focus integration test",
+                pattern: "[PASS] 12. Network Manager window manager registration & focus integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "147. Network Manager rendering clipping safety test",
+                pattern: "[PASS] 13. Network Manager rendering clipping safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "148. All Phase 4E Network Manager self-tests passed",
+                pattern: "[OK] All Phase 4E Network Manager Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "149. Terminal initial state & prompt format test",
+                pattern: "[PASS] 1. Terminal initial state & prompt format test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "150. Terminal path resolution & token parsing test",
+                pattern: "[PASS] 2. Terminal path resolution & token parsing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "151. Terminal empty input handling test",
+                pattern: "[PASS] 3. Terminal empty input handling test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "152. Terminal unknown command rejection test",
+                pattern: "[PASS] 4. Terminal unknown command rejection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "153. Terminal pwd and ls command execution test",
+                pattern: "[PASS] 5. Terminal pwd and ls command execution test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "154. Terminal cd directory navigation test",
+                pattern: "[PASS] 6. Terminal cd directory navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "155. Terminal mkdir and touch VFS integration test",
+                pattern: "[PASS] 7. Terminal mkdir and touch VFS integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "156. Terminal cat file reading test",
+                pattern: "[PASS] 8. Terminal cat file reading test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "157. Terminal rm file and directory deletion test",
+                pattern: "[PASS] 9. Terminal rm file and directory deletion test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "158. Terminal command history navigation test",
+                pattern: "[PASS] 10. Terminal command history navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "159. Terminal system telemetry & utility commands test",
+                pattern: "[PASS] 11. Terminal system telemetry & utility commands test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "160. Terminal date & reboot hardware honesty warnings test",
+                pattern: "[PASS] 12. Terminal date & reboot hardware honesty warnings test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "161. Terminal window manager registration & focus integration test",
+                pattern: "[PASS] 13. Terminal window manager registration & focus integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "162. Terminal rendering clipping safety test",
+                pattern: "[PASS] 14. Terminal rendering clipping safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "163. All Phase 4E Terminal self-tests passed",
+                pattern: "[OK] All Phase 4E Terminal Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "164. Package metadata validation & size formatting test",
+                pattern: "[PASS] 1. Package metadata validation & size formatting test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "165. Unique package IDs enforcement test",
+                pattern: "[PASS] 2. Unique package IDs enforcement test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "166. Search query filtering test",
+                pattern: "[PASS] 3. Search query filtering test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "167. Category tab filtering test",
+                pattern: "[PASS] 4. Category tab filtering test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "168. Built-in vs. available repository status distinction test",
+                pattern: "[PASS] 5. Built-in vs. available repository status distinction test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "169. Invalid package metadata rejection test",
+                pattern: "[PASS] 6. Invalid package metadata rejection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "170. Installation safety transition & anti-fabrication test",
+                pattern: "[PASS] 7. Installation safety transition & anti-fabrication test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "171. Uninstallation built-in component protection test",
+                pattern: "[PASS] 8. Uninstallation built-in component protection test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "172. Dependency metadata verification test",
+                pattern: "[PASS] 9. Dependency metadata verification test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "173. Empty catalogue search handling test",
+                pattern: "[PASS] 10. Empty catalogue search handling test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "174. Store initial state & tab navigation test",
+                pattern: "[PASS] 11. Store initial state & tab navigation test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "175. Store mouse click hit-testing test",
+                pattern: "[PASS] 12. Store mouse click hit-testing test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "176. Store window manager registration & focus integration test",
+                pattern: "[PASS] 13. Store window manager registration & focus integration test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "177. Store rendering clipping safety test",
+                pattern: "[PASS] 14. Store rendering clipping safety test",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "178. All Phase 4E Software Store self-tests passed",
+                pattern: "[OK] All Phase 4E Software Store Self-Tests Passed!",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "179. Package registration and lookup verified",
+                pattern: "[PASS] 1. Package registration and lookup verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "180. Duplicate package ID rejection verified",
+                pattern: "[PASS] 2. Duplicate package ID rejection verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "181. Package metadata validation verified",
+                pattern: "[PASS] 3. Package metadata validation verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "182. Search filtering across metadata verified",
+                pattern: "[PASS] 4. Search filtering across metadata verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "183. Installed and built-in packages listing verified",
+                pattern: "[PASS] 5. Installed and built-in packages listing verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "184. Dependency resolution for satisfied dependencies verified",
+                pattern: "[PASS] 6. Dependency resolution for satisfied dependencies verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "185. Missing dependency detection verified",
+                pattern: "[PASS] 7. Missing dependency detection verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "186. Cyclic dependency detection verified",
+                pattern: "[PASS] 8. Cyclic dependency detection verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "187. Protected built-in removal rejection verified",
+                pattern: "[PASS] 9. Protected built-in removal rejection verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "188. Invalid package name error handling verified",
+                pattern: "[PASS] 10. Invalid package name error handling verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "189. Installation failure handling and rollback verified",
+                pattern: "[PASS] 11. Installation failure handling and rollback verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "190. Bundled package installation and removal verified",
+                pattern: "[PASS] 12. Bundled package installation and removal verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "191. Repository offline honest error reporting verified",
+                pattern: "[PASS] 13. Repository offline honest error reporting verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "192. Database maximum capacity boundary (64 pkgs) verified",
+                pattern: "[PASS] 14. Database maximum capacity boundary (64 pkgs) verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "193. Terminal APT CLI commands output verified",
+                pattern: "[PASS] 15. Terminal APT CLI commands output verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "194. Software Store and Package DB synchronization verified",
+                pattern: "[PASS] 16. Software Store and Package DB synchronization verified",
+                passed: false,
+            },
+            MilestoneCheck {
+                name: "195. All Phase 4E.7 MicroOS APT self-tests passed",
+                pattern: "[OK] All Phase 4E.7 MicroOS APT Self-Tests Passed!",
+                passed: false,
+            },
         ];
 
         let mut captured_lines = Vec::new();
@@ -614,7 +1150,7 @@ fn main() -> anyhow::Result<()> {
         println!("================================================================");
 
         if all_passed {
-            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1, Phase 2, Phase 3A, Phase 3B, Phase 3C, Phase 4A, Phase 4B, Phase 4C & Phase 4D Verified.\x1b[0m");
+            println!("\x1b[1;32m[Runner Test] ALL CHECKS PASSED: Phase 1 through Phase 4E.7 (MicroOS APT Package Manager) Verified.\x1b[0m");
             println!("================================================================");
             Ok(())
         } else {

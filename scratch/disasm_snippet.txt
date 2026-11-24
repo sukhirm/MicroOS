@@ -1,0 +1,140 @@
+
+scratch/kernel_v2_elf:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000000027750 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main>:
+   39980: 00 00                        	addb	%al, (%rax)
+   39982: 00 c6                        	addb	%al, %dh
+   39984: 43 38 01                     	cmpb	%al, (%r9)
+   39987: b1 01                        	movb	$0x1, %cl
+   39989: 31 c0                        	xorl	%eax, %eax
+   3998b: f0                           	lock
+   3998c: 0f b0 0d 05 ee 09 00         	cmpxchgb	%cl, 0x9ee05(%rip)      # 0xd8798 <_RNvNtNtCsdqWPa6NUTL9_6kernel4task9scheduler9SCHEDULER>
+   39993: 74 1a                        	je	0x399af <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x1225f>
+   39995: 0f b6 05 fc ed 09 00         	movzbl	0x9edfc(%rip), %eax     # 0xd8798 <_RNvNtNtCsdqWPa6NUTL9_6kernel4task9scheduler9SCHEDULER>
+   3999c: 84 c0                        	testb	%al, %al
+   3999e: 74 e9                        	je	0x39989 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x12239>
+   399a0: f3 90                        	pause
+   399a2: 0f b6 05 ef ed 09 00         	movzbl	0x9edef(%rip), %eax     # 0xd8798 <_RNvNtNtCsdqWPa6NUTL9_6kernel4task9scheduler9SCHEDULER>
+   399a9: 84 c0                        	testb	%al, %al
+   399ab: 75 f3                        	jne	0x399a0 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x12250>
+   399ad: eb da                        	jmp	0x39989 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x12239>
+   399af: 4c 8b 35 2a ee 09 00         	movq	0x9ee2a(%rip), %r14     # 0xd87e0 <_RNvNtNtCsdqWPa6NUTL9_6kernel4task9scheduler9SCHEDULER+0x48>
+   399b6: 4d 85 f6                     	testq	%r14, %r14
+   399b9: 74 1e                        	je	0x399d9 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x12289>
+   399bb: 49 8b 36                     	movq	(%r14), %rsi
+   399be: 48 85 f6                     	testq	%rsi, %rsi
+   399c1: 74 09                        	je	0x399cc <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x1227c>
+   399c3: 49 8b 7e 08                  	movq	0x8(%r14), %rdi
+   399c7: e8 14 7d 08 00               	callq	0xc16e0 <_RNvXs3_NtNtCsdqWPa6NUTL9_6kernel6memory9allocatorINtB5_6LockedNtB5_19LinkedListAllocatorENtNtNtCs7uJmNHAZZJi_4core5alloc6global11GlobalAlloc7dealloc>
+   399cc: be 40 00 00 00               	movl	$0x40, %esi
+   399d1: 4c 89 f7                     	movq	%r14, %rdi
+   399d4: e8 07 7d 08 00               	callq	0xc16e0 <_RNvXs3_NtNtCsdqWPa6NUTL9_6kernel6memory9allocatorINtB5_6LockedNtB5_19LinkedListAllocatorENtNtNtCs7uJmNHAZZJi_4core5alloc6global11GlobalAlloc7dealloc>
+   399d9: 48 89 1d 00 ee 09 00         	movq	%rbx, 0x9ee00(%rip)     # 0xd87e0 <_RNvNtNtCsdqWPa6NUTL9_6kernel4task9scheduler9SCHEDULER+0x48>
+   399e0: c6 05 b1 ed 09 00 00         	movb	$0x0, 0x9edb1(%rip)     # 0xd8798 <_RNvNtNtCsdqWPa6NUTL9_6kernel4task9scheduler9SCHEDULER>
+   399e7: 41 f7 c7 00 02 00 00         	testl	$0x200, %r15d           # imm = 0x200
+   399ee: 0f 85 f8 01 00 00            	jne	0x39bec <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x1249c>
+   399f4: cd 30                        	int	$0x30
+   399f6: 48 8b 05 13 50 0a 00         	movq	0xa5013(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   399fd: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39a01: 0f 82 f9 01 00 00            	jb	0x39c00 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x124b0>
+   39a07: 48 c7 84 24 20 01 00 00 03 00 00 00  	movq	$0x3, 0x120(%rsp)
+   39a13: 48 8d 05 af 56 fd ff         	leaq	-0x2a951(%rip), %rax    # 0xf0c9 <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x443d>
+   39a1a: 48 89 84 24 28 01 00 00      	movq	%rax, 0x128(%rsp)
+   39a22: 48 c7 84 24 30 01 00 00 17 00 00 00  	movq	$0x17, 0x130(%rsp)
+   39a2e: 48 8d 0d 6c f5 fd ff         	leaq	-0x20a94(%rip), %rcx    # 0x18fa1 <_RNvNtCsdqWPa6NUTL9_6kernel6logger6LOGGER+0x68d9>
+   39a35: 48 89 8c 24 40 01 00 00      	movq	%rcx, 0x140(%rsp)
+   39a3d: 48 c7 84 24 48 01 00 00 95 00 00 00  	movq	$0x95, 0x148(%rsp)
+   39a49: 48 c7 84 24 f0 00 00 00 00 00 00 00  	movq	$0x0, 0xf0(%rsp)
+   39a55: 48 89 84 24 f8 00 00 00      	movq	%rax, 0xf8(%rsp)
+   39a5d: 48 c7 84 24 00 01 00 00 17 00 00 00  	movq	$0x17, 0x100(%rsp)
+   39a69: 48 c7 84 24 08 01 00 00 00 00 00 00  	movq	$0x0, 0x108(%rsp)
+   39a75: 48 8d 05 60 19 fd ff         	leaq	-0x2e6a0(%rip), %rax    # 0xb3dc <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x750>
+   39a7c: 48 89 84 24 10 01 00 00      	movq	%rax, 0x110(%rsp)
+   39a84: 48 c7 84 24 18 01 00 00 1c 00 00 00  	movq	$0x1c, 0x118(%rsp)
+   39a90: 48 b8 01 00 00 00 1a 01 00 00	movabsq	$0x11a00000001, %rax    # imm = 0x11A00000001
+   39a9a: 48 89 84 24 38 01 00 00      	movq	%rax, 0x138(%rsp)
+   39aa2: 48 8b 05 6f 4f 0a 00         	movq	0xa4f6f(%rip), %rax     # 0xdea18 <_RNvCs1RhmT5QfOk3_3log5STATE>
+   39aa9: 48 83 f8 02                  	cmpq	$0x2, %rax
+   39aad: 48 8d 05 e4 c3 09 00         	leaq	0x9c3e4(%rip), %rax     # 0xd5e98 <_RNvNtNtNtCs7uJmNHAZZJi_4core7unicode12unicode_data11conversions13LOWERCASE_LUT+0x278>
+   39ab4: 48 0f 44 05 8c fe 09 00      	cmoveq	0x9fe8c(%rip), %rax     # 0xd9948 <_RNvCs1RhmT5QfOk3_3log6LOGGER.1>
+   39abc: 48 8d 3d 5a 65 fe ff         	leaq	-0x19aa6(%rip), %rdi    # 0x2001d <_RNvNvCs1RhmT5QfOk3_3log6logger3NOP>
+   39ac3: 48 0f 44 3d 75 fe 09 00      	cmoveq	0x9fe75(%rip), %rdi     # 0xd9940 <_RNvCs1RhmT5QfOk3_3log6LOGGER.0>
+   39acb: 48 8d b4 24 f0 00 00 00      	leaq	0xf0(%rsp), %rsi
+   39ad3: ff 50 20                     	callq	*0x20(%rax)
+   39ad6: 48 8b 05 33 4f 0a 00         	movq	0xa4f33(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   39add: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39ae1: 0f 83 2a 01 00 00            	jae	0x39c11 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x124c1>
+   39ae7: 48 8b 05 22 4f 0a 00         	movq	0xa4f22(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   39aee: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39af2: 0f 82 f9 01 00 00            	jb	0x39cf1 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x125a1>
+   39af8: 48 c7 84 24 20 01 00 00 03 00 00 00  	movq	$0x3, 0x120(%rsp)
+   39b04: 48 8d 0d 1e 86 fd ff         	leaq	-0x279e2(%rip), %rcx    # 0x12129 <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x749d>
+   39b0b: 48 89 8c 24 28 01 00 00      	movq	%rcx, 0x128(%rsp)
+   39b13: 48 c7 84 24 30 01 00 00 0c 00 00 00  	movq	$0xc, 0x130(%rsp)
+   39b1f: 48 8d 05 16 89 fd ff         	leaq	-0x276ea(%rip), %rax    # 0x1243c <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x77b0>
+   39b26: 48 89 84 24 40 01 00 00      	movq	%rax, 0x140(%rsp)
+   39b2e: 48 c7 84 24 48 01 00 00 81 00 00 00  	movq	$0x81, 0x148(%rsp)
+   39b3a: 48 c7 84 24 f0 00 00 00 00 00 00 00  	movq	$0x0, 0xf0(%rsp)
+   39b46: 48 89 8c 24 f8 00 00 00      	movq	%rcx, 0xf8(%rsp)
+   39b4e: 48 c7 84 24 00 01 00 00 0c 00 00 00  	movq	$0xc, 0x100(%rsp)
+   39b5a: 48 c7 84 24 08 01 00 00 00 00 00 00  	movq	$0x0, 0x108(%rsp)
+   39b66: 48 8d 05 0b 26 fd ff         	leaq	-0x2d9f5(%rip), %rax    # 0xc178 <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x14ec>
+   39b6d: 48 89 84 24 10 01 00 00      	movq	%rax, 0x110(%rsp)
+   39b75: 48 c7 84 24 18 01 00 00 16 00 00 00  	movq	$0x16, 0x118(%rsp)
+   39b81: 48 b8 01 00 00 00 14 01 00 00	movabsq	$0x11400000001, %rax    # imm = 0x11400000001
+   39b8b: 48 89 84 24 38 01 00 00      	movq	%rax, 0x138(%rsp)
+   39b93: 48 8b 05 7e 4e 0a 00         	movq	0xa4e7e(%rip), %rax     # 0xdea18 <_RNvCs1RhmT5QfOk3_3log5STATE>
+   39b9a: 48 83 f8 02                  	cmpq	$0x2, %rax
+   39b9e: 48 8d 05 f3 c2 09 00         	leaq	0x9c2f3(%rip), %rax     # 0xd5e98 <_RNvNtNtNtCs7uJmNHAZZJi_4core7unicode12unicode_data11conversions13LOWERCASE_LUT+0x278>
+   39ba5: 48 0f 44 05 9b fd 09 00      	cmoveq	0x9fd9b(%rip), %rax     # 0xd9948 <_RNvCs1RhmT5QfOk3_3log6LOGGER.1>
+   39bad: 48 8d 3d 69 64 fe ff         	leaq	-0x19b97(%rip), %rdi    # 0x2001d <_RNvNvCs1RhmT5QfOk3_3log6logger3NOP>
+   39bb4: 48 0f 44 3d 84 fd 09 00      	cmoveq	0x9fd84(%rip), %rdi     # 0xd9940 <_RNvCs1RhmT5QfOk3_3log6LOGGER.0>
+   39bbc: 48 8d b4 24 f0 00 00 00      	leaq	0xf0(%rsp), %rsi
+   39bc4: ff 50 20                     	callq	*0x20(%rax)
+   39bc7: 48 8b 05 42 4e 0a 00         	movq	0xa4e42(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   39bce: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39bd2: 0f 83 2a 01 00 00            	jae	0x39d02 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x125b2>
+   39bd8: 0f b6 05 79 fd 09 00         	movzbl	0x9fd79(%rip), %eax     # 0xd9958 <_RNvNtCsdqWPa6NUTL9_6kernel4task19PREEMPTION_OBSERVED.0>
+   39bdf: 84 c0                        	testb	%al, %al
+   39be1: 0f 85 40 02 00 00            	jne	0x39e27 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x126d7>
+   39be7: e9 f0 01 00 00               	jmp	0x39ddc <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x1268c>
+   39bec: fb                           	sti
+   39bed: cd 30                        	int	$0x30
+   39bef: 48 8b 05 1a 4e 0a 00         	movq	0xa4e1a(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   39bf6: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39bfa: 0f 83 07 fe ff ff            	jae	0x39a07 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x122b7>
+   39c00: 48 8b 05 09 4e 0a 00         	movq	0xa4e09(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   39c07: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39c0b: 0f 82 d6 fe ff ff            	jb	0x39ae7 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x12397>
+   39c11: 48 c7 84 24 20 01 00 00 03 00 00 00  	movq	$0x3, 0x120(%rsp)
+   39c1d: 48 8d 0d 05 85 fd ff         	leaq	-0x27afb(%rip), %rcx    # 0x12129 <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x749d>
+   39c24: 48 89 8c 24 28 01 00 00      	movq	%rcx, 0x128(%rsp)
+   39c2c: 48 c7 84 24 30 01 00 00 0c 00 00 00  	movq	$0xc, 0x130(%rsp)
+   39c38: 48 8d 05 b5 81 fd ff         	leaq	-0x27e4b(%rip), %rax    # 0x11df4 <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x7168>
+   39c3f: 48 89 84 24 40 01 00 00      	movq	%rax, 0x140(%rsp)
+   39c47: 48 c7 84 24 48 01 00 00 81 00 00 00  	movq	$0x81, 0x148(%rsp)
+   39c53: 48 c7 84 24 f0 00 00 00 00 00 00 00  	movq	$0x0, 0xf0(%rsp)
+   39c5f: 48 89 8c 24 f8 00 00 00      	movq	%rcx, 0xf8(%rsp)
+   39c67: 48 c7 84 24 00 01 00 00 0c 00 00 00  	movq	$0xc, 0x100(%rsp)
+   39c73: 48 c7 84 24 08 01 00 00 00 00 00 00  	movq	$0x0, 0x108(%rsp)
+   39c7f: 48 8d 05 f2 24 fd ff         	leaq	-0x2db0e(%rip), %rax    # 0xc178 <_RNvNtNtCsdqWPa6NUTL9_6kernel7desktop6cursor13CURSOR_SPRITE+0x14ec>
+   39c86: 48 89 84 24 10 01 00 00      	movq	%rax, 0x110(%rsp)
+   39c8e: 48 c7 84 24 18 01 00 00 16 00 00 00  	movq	$0x16, 0x118(%rsp)
+   39c9a: 48 b8 01 00 00 00 13 01 00 00	movabsq	$0x11300000001, %rax    # imm = 0x11300000001
+   39ca4: 48 89 84 24 38 01 00 00      	movq	%rax, 0x138(%rsp)
+   39cac: 48 8b 05 65 4d 0a 00         	movq	0xa4d65(%rip), %rax     # 0xdea18 <_RNvCs1RhmT5QfOk3_3log5STATE>
+   39cb3: 48 83 f8 02                  	cmpq	$0x2, %rax
+   39cb7: 48 8d 05 da c1 09 00         	leaq	0x9c1da(%rip), %rax     # 0xd5e98 <_RNvNtNtNtCs7uJmNHAZZJi_4core7unicode12unicode_data11conversions13LOWERCASE_LUT+0x278>
+   39cbe: 48 0f 44 05 82 fc 09 00      	cmoveq	0x9fc82(%rip), %rax     # 0xd9948 <_RNvCs1RhmT5QfOk3_3log6LOGGER.1>
+   39cc6: 48 8d 3d 50 63 fe ff         	leaq	-0x19cb0(%rip), %rdi    # 0x2001d <_RNvNvCs1RhmT5QfOk3_3log6logger3NOP>
+   39ccd: 48 0f 44 3d 6b fc 09 00      	cmoveq	0x9fc6b(%rip), %rdi     # 0xd9940 <_RNvCs1RhmT5QfOk3_3log6LOGGER.0>
+   39cd5: 48 8d b4 24 f0 00 00 00      	leaq	0xf0(%rsp), %rsi
+   39cdd: ff 50 20                     	callq	*0x20(%rax)
+   39ce0: 48 8b 05 29 4d 0a 00         	movq	0xa4d29(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   39ce7: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39ceb: 0f 83 07 fe ff ff            	jae	0x39af8 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x123a8>
+   39cf1: 48 8b 05 18 4d 0a 00         	movq	0xa4d18(%rip), %rax     # 0xdea10 <_RNvCs1RhmT5QfOk3_3log20MAX_LOG_LEVEL_FILTER.0>
+   39cf8: 48 83 f8 03                  	cmpq	$0x3, %rax
+   39cfc: 0f 82 d6 fe ff ff            	jb	0x39bd8 <_RNvCsdqWPa6NUTL9_6kernel11kernel_main+0x12488>

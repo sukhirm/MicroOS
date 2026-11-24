@@ -1,0 +1,11 @@
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/f1bfee0dafcf87c3\out\bootloader_api-f1bfee0dafcf87c3.d: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\config.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\info.rs C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/3dce01b2f93850c5\out/concat.rs C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/3dce01b2f93850c5\out/version_info.rs
+
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/f1bfee0dafcf87c3\out\libbootloader_api-f1bfee0dafcf87c3.rmeta: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\config.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\info.rs C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/3dce01b2f93850c5\out/concat.rs C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/3dce01b2f93850c5\out/version_info.rs
+
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\lib.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\config.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader_api-0.11.17\src\info.rs:
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/3dce01b2f93850c5\out/concat.rs:
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\x86_64-unknown-none\release\build\bootloader_api/3dce01b2f93850c5\out/version_info.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\sukhi\\OneDrive\\Documents\\MicroOS_New\\target\\x86_64-unknown-none\\release\\build\\bootloader_api/3dce01b2f93850c5\\out

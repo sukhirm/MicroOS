@@ -10,30 +10,47 @@ use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::VirtAddr;
 
-/// Interrupt Stack Table (IST) index for the Double Fault handler.
-/// In x86_64 TSS, IST entries are 1-indexed in architectural manuals (IST1 = index 0 in table).
+/// Interrupt Stack Table (IST) index for the Double Fault handler (IST1 = index 0 in table).
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
-/// Stack size for the dedicated double fault IST stack (20 KiB).
-const DOUBLE_FAULT_STACK_SIZE: usize = 4096 * 5;
+/// Interrupt Stack Table (IST) index for the Page Fault handler (IST2 = index 1 in table).
+pub const PAGE_FAULT_IST_INDEX: u16 = 1;
 
-/// 16-byte aligned memory buffer for the double fault stack.
+/// Interrupt Stack Table (IST) index for the General Protection Fault handler (IST3 = index 2 in table).
+pub const GENERAL_PROTECTION_IST_INDEX: u16 = 2;
+
+/// Stack size for dedicated IST stacks (20 KiB each).
+const IST_STACK_SIZE: usize = 4096 * 5;
+
+/// 16-byte aligned memory buffer for IST stacks.
 #[repr(align(16))]
 #[allow(dead_code)]
-struct IstStack([u8; DOUBLE_FAULT_STACK_SIZE]);
+struct IstStack([u8; IST_STACK_SIZE]);
 
-/// Dedicated stack memory for double fault exceptions.
-static mut DOUBLE_FAULT_STACK: IstStack = IstStack([0; DOUBLE_FAULT_STACK_SIZE]);
+/// Dedicated stack memory for double fault exceptions (IST1).
+static mut DOUBLE_FAULT_STACK: IstStack = IstStack([0; IST_STACK_SIZE]);
+
+/// Dedicated stack memory for page fault exceptions (IST2).
+static mut PAGE_FAULT_STACK: IstStack = IstStack([0; IST_STACK_SIZE]);
+
+/// Dedicated stack memory for general protection fault exceptions (IST3).
+static mut GENERAL_PROTECTION_STACK: IstStack = IstStack([0; IST_STACK_SIZE]);
 
 /// Static Task State Segment (TSS) containing IST configuration.
 static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
     let mut tss = TaskStateSegment::new();
-    // SAFETY: We calculate the pointer to the end of the dedicated static stack buffer.
-    // The buffer is statically allocated, 16-byte aligned, and never deallocated.
+    // SAFETY: We calculate pointers to the tops of the dedicated static stack buffers.
+    // The buffers are statically allocated, 16-byte aligned, and never deallocated.
     // Stacks grow downward on x86_64, so the initial RSP must point to the top of the stack.
-    let stack_start = VirtAddr::from_ptr(core::ptr::addr_of!(DOUBLE_FAULT_STACK));
-    let stack_end = stack_start + DOUBLE_FAULT_STACK_SIZE as u64;
-    tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = stack_end;
+    let df_start = VirtAddr::from_ptr(core::ptr::addr_of!(DOUBLE_FAULT_STACK));
+    tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = df_start + IST_STACK_SIZE as u64;
+
+    let pf_start = VirtAddr::from_ptr(core::ptr::addr_of!(PAGE_FAULT_STACK));
+    tss.interrupt_stack_table[PAGE_FAULT_IST_INDEX as usize] = pf_start + IST_STACK_SIZE as u64;
+
+    let gp_start = VirtAddr::from_ptr(core::ptr::addr_of!(GENERAL_PROTECTION_STACK));
+    tss.interrupt_stack_table[GENERAL_PROTECTION_IST_INDEX as usize] = gp_start + IST_STACK_SIZE as u64;
+
     tss
 });
 

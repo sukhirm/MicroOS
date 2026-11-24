@@ -563,11 +563,15 @@ fn test_desktop_dock_hit_testing() {
     let screen_h = 800;
 
     // Test clicking the 1st dock entry (Files)
-    // Dock is centered: total width = 6 * 64 + 32 = 416
-    // start x = (1280 - 416) / 2 = 432
-    // 1st slot center = 432 + 16 + 32 = 480, Y = 800 - 62 - 14 + 30 = 754
-    let hit_0 = hit_test_dock(screen_w, screen_h, Point::new(480, 754));
+    // Dock is centered: total width = 7 * 64 + 32 = 480
+    // start x = (1280 - 480) / 2 = 400
+    // 1st slot center = 400 + 16 + 32 = 448, Y = 800 - 62 - 14 + 30 = 754
+    let hit_0 = hit_test_dock(screen_w, screen_h, Point::new(448, 754));
     assert_eq!(hit_0, Some(0), "Must hit 1st dock item (Files)");
+
+    // Test clicking the 7th dock entry (Deadlock)
+    let hit_6 = hit_test_dock(screen_w, screen_h, Point::new(832, 754));
+    assert_eq!(hit_6, Some(6), "Must hit 7th dock item (Deadlock)");
 
     // Test clicking outside dock
     let hit_outside = hit_test_dock(screen_w, screen_h, Point::new(100, 100));

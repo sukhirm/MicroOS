@@ -279,21 +279,74 @@ fn test_icon_transparency() {
     log::info!("  [PASS] 8. Embedded bitmap icon rendering and transparency preservation test");
 }
 
-/// 9. Verifies dedicated backbuffer memory mapping and surface blitting fidelity.
+/// 9. Verifies dedicated 16 MiB backbuffer memory mapping, multi-resolution support (1280x800, 1920x1080),
+/// capacity boundary checks, and surface blitting fidelity.
 fn test_double_buffer_mapping_and_blit() {
     // 1. Verify that BACKBUFFER_START virtual memory was mapped during memory::init()
     let backbuffer_ptr = BACKBUFFER_START as *mut u8;
     assert!(!backbuffer_ptr.is_null());
-    assert_eq!(BACKBUFFER_SIZE, 4 * 1024 * 1024);
+    assert_eq!(BACKBUFFER_SIZE, 16 * 1024 * 1024, "BACKBUFFER_SIZE must be exactly 16 MiB");
 
-    // 2. Instantiate backbuffer surface
+    // 2. Validate Existing 1280x800 Framebuffer Geometry (QEMU / Default)
+    // 1280 * 800 * 4 = 4,096,000 bytes (~3.91 MiB <= 16 MiB)
+    let res_1280_res = unsafe {
+        double_buffer::try_create_backbuffer_surface(1280, 800, 1280, PixelFormat::Bgr)
+    };
+    assert!(res_1280_res.is_ok(), "1280x800 backbuffer creation must succeed");
+    let backbuffer_1280 = res_1280_res.unwrap();
+    assert_eq!(backbuffer_1280.width(), 1280);
+    assert_eq!(backbuffer_1280.height(), 800);
+    assert_eq!(backbuffer_1280.stride(), 1280);
+    assert_eq!(backbuffer_1280.bytes_per_pixel(), 4);
+
+    // 3. Validate Physical HP Victus 1920x1080 Framebuffer Geometry (FHD Native)
+    // 1920 * 1080 * 4 = 8,294,400 bytes (~7.91 MiB <= 16 MiB)
+    let res_1080_res = unsafe {
+        double_buffer::try_create_backbuffer_surface(1920, 1080, 1920, PixelFormat::Bgr)
+    };
+    assert!(res_1080_res.is_ok(), "1920x1080 FHD backbuffer creation must succeed");
+    let backbuffer_1080 = res_1080_res.unwrap();
+    assert_eq!(backbuffer_1080.width(), 1920);
+    assert_eq!(backbuffer_1080.height(), 1080);
+    assert_eq!(backbuffer_1080.stride(), 1920);
+    assert_eq!(backbuffer_1080.bytes_per_pixel(), 4);
+
+    // 4. Validate QHD 2560x1440 Framebuffer Geometry
+    // 2560 * 1440 * 4 = 14,745,600 bytes (~14.06 MiB <= 16 MiB)
+    let res_1440_res = unsafe {
+        double_buffer::try_create_backbuffer_surface(2560, 1440, 2560, PixelFormat::Bgr)
+    };
+    assert!(res_1440_res.is_ok(), "2560x1440 QHD backbuffer creation must succeed");
+
+    // 5. Validate Backbuffer Capacity Boundaries (Excessively Large Framebuffers Fail Safely)
+    // 4K UHD: 3840 * 2160 * 4 = 33,177,600 bytes (~31.6 MiB > 16 MiB)
+    let res_4k = unsafe {
+        double_buffer::try_create_backbuffer_surface(3840, 2160, 3840, PixelFormat::Bgr)
+    };
+    match res_4k {
+        Err(double_buffer::BackbufferError::CapacityExceeded { required, max }) => {
+            assert_eq!(required, 33_177_600);
+            assert_eq!(max, 16 * 1024 * 1024);
+        }
+        _ => panic!("Expected CapacityExceeded for 4K UHD"),
+    }
+
+    // Geometry arithmetic overflow protection
+    let res_overflow = unsafe {
+        double_buffer::try_create_backbuffer_surface(usize::MAX, 100, usize::MAX, PixelFormat::Bgr)
+    };
+    match res_overflow {
+        Err(double_buffer::BackbufferError::GeometryOverflow) => {}
+        _ => panic!("Overflowing geometry must safely return GeometryOverflow"),
+    }
+
+    // 6. Instantiate test surface and verify drawing & off-screen blitting fidelity
     let mut backbuffer = unsafe {
         double_buffer::create_backbuffer_surface(320, 240, 320, PixelFormat::Bgr)
     };
     assert_eq!(backbuffer.width(), 320);
     assert_eq!(backbuffer.height(), 240);
 
-    // 3. Draw onto the off-screen backbuffer
     let fill_color = Color::new(0x13, 0x1B, 0x2E);
     let accent_color = Color::new(0x38, 0xBD, 0xF8);
     backbuffer.clear(fill_color);
@@ -302,7 +355,7 @@ fn test_double_buffer_mapping_and_blit() {
     assert_eq!(backbuffer.get_pixel(10, 10), Some(fill_color));
     assert_eq!(backbuffer.get_pixel(25, 25), Some(accent_color));
 
-    // 4. Blit from backbuffer to a destination target surface
+    // Blit from backbuffer to a destination target surface
     let mut target_buf = vec![0u8; 320 * 240 * 4];
     let mut target_surface = Surface::from_raw_parts(&mut target_buf, 320, 240, 320, 4, PixelFormat::Bgr);
     target_surface.clear(Color::BLACK);
@@ -311,5 +364,5 @@ fn test_double_buffer_mapping_and_blit() {
     assert_eq!(target_surface.get_pixel(10, 10), Some(fill_color));
     assert_eq!(target_surface.get_pixel(25, 25), Some(accent_color));
 
-    log::info!("  [PASS] 9. Dedicated 4 MiB backbuffer mapping and off-screen blit fidelity test");
+    log::info!("  [PASS] 9. Dedicated 16 MiB backbuffer mapping, multi-resolution (1280x800, 1920x1080) and bounds test");
 }

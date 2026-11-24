@@ -41,6 +41,11 @@ impl ReadyQueue {
         self.tasks.len()
     }
 
+    /// Returns an iterator over the tasks in the ready queue.
+    pub fn iter(&self) -> impl Iterator<Item = &Box<TaskControlBlock>> {
+        self.tasks.iter()
+    }
+
     /// Returns true if the ready queue contains no tasks.
     pub fn is_empty(&self) -> bool {
         self.tasks.is_empty()

@@ -35,26 +35,26 @@ pub fn create_demo_desktop(screen_w: u32, screen_h: u32) -> WindowManager {
     let win_sysmon = Window::new(
         WindowId::new(2),
         "System Monitor",
-        310,
-        170,
-        390,
-        250,
+        280,
+        140,
+        520,
+        350,
     )
     .with_icon(&ICON_ACTIVITY)
-    .with_content_renderer(render_sysmon_content);
+    .with_content_renderer(crate::apps::sysmon::render_sysmon_content);
     wm.add_window(win_sysmon);
 
     // 3. Settings Window (Front-most & Active)
     let win_settings = Window::new(
         WindowId::new(3),
         "Settings",
-        520,
-        270,
-        370,
-        260,
+        480,
+        220,
+        500,
+        340,
     )
     .with_icon(&ICON_GEAR)
-    .with_content_renderer(render_settings_content);
+    .with_content_renderer(crate::apps::settings::render_settings_content);
     wm.add_window(win_settings);
 
     // Activate the front-most Settings window
@@ -123,7 +123,8 @@ fn render_welcome_content(_window: &Window, surface: &mut Surface, rect: Rect) {
     );
 }
 
-/// Content renderer for the System Monitor Window.
+/// Content renderer for the System Monitor Window (legacy fallback).
+#[allow(dead_code)]
 fn render_sysmon_content(_window: &Window, surface: &mut Surface, rect: Rect) {
     let padding = 14i32;
     let mut cur_y = rect.y + padding;
@@ -144,8 +145,8 @@ fn render_sysmon_content(_window: &Window, surface: &mut Surface, rect: Rect) {
 
     let metrics = [
         ("Physical RAM:", "497 MiB usable"),
-        ("Kernel Heap:", "1024 KiB (Dynamic)"),
-        ("Backbuffer:", "4096 KiB (Direct VRAM)"),
+        ("Kernel Heap:", "16 MiB (Dynamic)"),
+        ("Backbuffer:", "16384 KiB (Direct VRAM)"),
         ("Timer Tick:", "10 ms (100 Hz IRQ0)"),
         ("Execution:", "Ring 0 (Supervisor)"),
         ("CPU Registers:", "CR0/CR3/CR4 Validated"),
@@ -169,7 +170,8 @@ fn render_sysmon_content(_window: &Window, surface: &mut Surface, rect: Rect) {
     surface.fill_rounded_rect(fill_rect, 3, Color::ACCENT_CYAN);
 }
 
-/// Content renderer for the Settings Window.
+/// Content renderer for the Settings Window (legacy demo fallback).
+#[allow(dead_code)]
 fn render_settings_content(_window: &Window, surface: &mut Surface, rect: Rect) {
     let padding = 14i32;
     let mut cur_y = rect.y + padding;

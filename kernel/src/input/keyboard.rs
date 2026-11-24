@@ -72,6 +72,8 @@ impl KeyboardDecoder {
                 0x1D => KeyCode::RightCtrl,
                 0x38 => KeyCode::RightAlt,
                 0x5B => KeyCode::LeftSuper,
+                0x5C => KeyCode::LeftSuper,
+                0x5D => KeyCode::LeftSuper,
                 other => KeyCode::Unknown(other | 0x80),
             }
         } else {
@@ -259,6 +261,7 @@ static GLOBAL_KEYBOARD_DECODER: SpinMutex<KeyboardDecoder> =
 
 /// Processes an incoming scancode from IRQ1 and queues the resulting event, if any.
 pub fn handle_scancode(scancode: u8) {
+    let _irq = crate::sync::irq::IrqGuard::acquire();
     if let Some(event) = GLOBAL_KEYBOARD_DECODER.lock().process_byte(scancode) {
         super::queue::push_event(super::event::InputEvent::Key(event));
     }

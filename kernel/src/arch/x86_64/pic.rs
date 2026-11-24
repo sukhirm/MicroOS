@@ -117,10 +117,25 @@ pub unsafe fn set_mask(irq: u8) {
     data_port.write(value);
 }
 
-/// Enables hardware interrupts for keyboard (IRQ1) and mouse (IRQ12 via cascade IRQ2).
+/// Masks all IRQ lines on both Master and Slave PICs.
+///
+/// Disables all legacy 8259 interrupt delivery, ensuring no hardware IRQ
+/// (e.g. Timer IRQ0, Keyboard IRQ1, Cascade IRQ2) asserts the CPU INTR line.
+pub unsafe fn mask_all() {
+    let mut pic1_data: Port<u8> = Port::new(PIC1_DATA);
+    let mut pic2_data: Port<u8> = Port::new(PIC2_DATA);
+    pic1_data.write(0xFF);
+    io_wait();
+    pic2_data.write(0xFF);
+    io_wait();
+    log::info!("[PIC] All 8259 IRQs masked (Master=0xFF, Slave=0xFF). Pure polling mode engaged.");
+}
+
+/// Enables hardware interrupts for keyboard (IRQ1).
+///
+/// NOTE: IRQ2 (cascade) and IRQ12 (mouse) remain strictly masked on the Slave PIC
+/// to prevent unmapped interrupt faults and spurious exceptions on laptops without PS/2 mice.
 pub unsafe fn enable_input_irqs() {
-    clear_mask(1);  // IRQ1: Keyboard
-    clear_mask(2);  // IRQ2: Cascade to Slave PIC
-    clear_mask(12); // IRQ12: Mouse
-    log::info!("[PIC] Input IRQs enabled: IRQ1 (Keyboard), IRQ2 (Cascade), IRQ12 (Mouse).");
+    clear_mask(1); // IRQ1: Keyboard
+    log::info!("[PIC] Input IRQs enabled: IRQ1 (Keyboard). Slave PIC remains masked.");
 }

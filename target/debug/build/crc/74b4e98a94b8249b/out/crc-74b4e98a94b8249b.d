@@ -1,0 +1,12 @@
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\crc/74b4e98a94b8249b\out\crc-74b4e98a94b8249b.d: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc128.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc16.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc32.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc64.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc8.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\table.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\util.rs
+
+C:\Users\sukhi\OneDrive\Documents\MicroOS_New\target\debug\build\crc/74b4e98a94b8249b\out\libcrc-74b4e98a94b8249b.rmeta: C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\lib.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc128.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc16.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc32.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc64.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc8.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\table.rs C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\util.rs
+
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\lib.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc128.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc16.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc32.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc64.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\crc8.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\table.rs:
+C:\Users\sukhi\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crc-3.4.0\src\util.rs:
